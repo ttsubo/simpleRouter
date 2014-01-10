@@ -50,6 +50,7 @@ class SimpleArp(app_manager.RyuApp):
 
         set_config = ofproto_parser.OFPSetConfig(
             datapath,
+            datapath.ofproto.OFPC_FRAG_NORMAL,
             datapath.ofproto.OFPCML_MAX
         )
         datapath.send_msg(set_config)

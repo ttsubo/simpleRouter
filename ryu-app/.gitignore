@@ -1,0 +1,14 @@
+*.py[co]
+*~
+
+GTAGS
+GRTAGS
+GPATH
+GSYMS
+*.log
+.venv/
+.tox/
+.coverage
+covhtml/
+coverage.xml
+nosetests.xml

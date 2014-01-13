@@ -19,7 +19,7 @@ from ryu.ofproto import ether
 from ryu.ofproto import inet
 
 LOG = logging.getLogger('SimpleRouter')
-LOG.setLevel(logging.INFO)
+LOG.setLevel(logging.DEBUG)
 logging.basicConfig()
 
 HOST_IPADDR1 = "192.168.0.1"
@@ -37,7 +37,6 @@ class SimpleRouter(app_manager.RyuApp):
 
     HOST_MACADDR1 = None
     HOST_MACADDR2 = None
-    ADD_FLOW_FLAG = 0
 
     def __init__(self, *args, **kwargs):
         super(SimpleRouter, self).__init__(*args, **kwargs)
@@ -88,7 +87,6 @@ class SimpleRouter(app_manager.RyuApp):
 
         packet = Packet(msg.data)
         etherFrame = packet.get_protocol(ethernet)
-        self.print_etherFrame(etherFrame)
         if etherFrame.ethertype == ether.ETH_TYPE_ARP:
             self.receive_arp(datapath, packet, etherFrame, inPort)
             return 0
@@ -96,72 +94,69 @@ class SimpleRouter(app_manager.RyuApp):
             self.receive_ip(datapath, packet, etherFrame, inPort)
             return 1
         else:
+            LOG.debug("receive Unknown packet %s => %s (port%d)"
+                       %(etherFrame.src, etherFrame.dst, inPort))
+            self.print_etherFrame(etherFrame)
             LOG.debug("Drop packet")
             return 2
 
 
     def receive_ip(self, datapath, packet, etherFrame, inPort):
         ipPacket = packet.get_protocol(ipv4)
+        LOG.debug("receive IP packet %s => %s (port%d)"
+                       %(etherFrame.src, etherFrame.dst, inPort))
+        self.print_etherFrame(etherFrame)
         self.print_ipPacket(ipPacket)
-        if inPort == ROUTER_PORT1 and ipPacket.src == HOST_IPADDR1: 
-            LOG.debug("Drop packet")
-            if self.HOST_MACADDR2 == None:
+        LOG.debug("Drop packet")
+
+        if inPort == ROUTER_PORT1 and ipPacket.src == HOST_IPADDR1:
+            self.HOST_MACADDR1 = etherFrame.src
+        elif inPort == ROUTER_PORT2 and ipPacket.src == HOST_IPADDR2:
+            self.HOST_MACADDR2 = etherFrame.src
+
+        if self.HOST_MACADDR1 != None and self.HOST_MACADDR2 != None:
+            if ipPacket.dst == HOST_IPADDR1 or ipPacket.dst == HOST_IPADDR2:
+                self.send_flow(datapath)
+            else:
+                LOG.debug("unknown ip received !")
+        elif self.HOST_MACADDR1 == None or self.HOST_MACADDR2 == None:
+            dstMac = "ff:ff:ff:ff:ff:ff"
+            if ipPacket.dst == HOST_IPADDR2:
                 self.send_arp(datapath, 1, ROUTER_MACADDR2, ROUTER_IPADDR2,
                              "ff:ff:ff:ff:ff:ff", HOST_IPADDR2, ROUTER_PORT2)
                 LOG.debug("send ARP request %s => %s (port%d)"
-                          %(ROUTER_MACADDR2, "ff:ff:ff:ff:ff:ff", ROUTER_PORT2))
-            elif self.HOST_MACADDR2 != None and self.HOST_MACADDR1 != None:
-                LOG.debug("Send Flow_mod packet for %s", HOST_IPADDR2)
-                self.add_flow(datapath, ROUTER_PORT1, self.HOST_MACADDR1,
-                              ROUTER_MACADDR1, ether.ETH_TYPE_IP,
-                              HOST_IPADDR2, ROUTER_MACADDR2,
-                              self.HOST_MACADDR2, ROUTER_PORT2)
-        elif inPort == ROUTER_PORT2 and ipPacket.src == HOST_IPADDR2: 
-            LOG.debug("Drop packet")
-            if self.HOST_MACADDR1 == None:
+                         %(ROUTER_MACADDR2, "ff:ff:ff:ff:ff:ff", ROUTER_PORT2))
+            elif ipPacket.dst == HOST_IPADDR1:
                 self.send_arp(datapath, 1, ROUTER_MACADDR1, ROUTER_IPADDR1,
                              "ff:ff:ff:ff:ff:ff", HOST_IPADDR1, ROUTER_PORT1)
                 LOG.debug("send ARP request %s => %s (port%d)"
-                          %(ROUTER_MACADDR1, "ff:ff:ff:ff:ff:ff", ROUTER_PORT2))
-            elif self.HOST_MACADDR1 != None and self.HOST_MACADDR2 != None:
-                LOG.debug("Send Flow_mod packet for %s", HOST_IPADDR1)
-                self.add_flow(datapath, ROUTER_PORT2, self.HOST_MACADDR2,
-                              ROUTER_MACADDR2, ether.ETH_TYPE_IP,
-                              HOST_IPADDR1, ROUTER_MACADDR1,
-                              self.HOST_MACADDR1, ROUTER_PORT1)
-        else: 
-            LOG.debug("Drop packet")
+                         %(ROUTER_MACADDR1, "ff:ff:ff:ff:ff:ff", ROUTER_PORT1))
+            else:
+                LOG.debug("unknown ip received !")
 
 
     def receive_arp(self, datapath, packet, etherFrame, inPort):
         arpPacket = packet.get_protocol(arp)
-        self.print_arpPacket(arpPacket)
         if arpPacket.opcode == 1:
+            operation = "ARP Request"
             arp_dstIp = arpPacket.dst_ip
-            LOG.debug("receive ARP request %s => %s (port%d)"
-                       %(etherFrame.src, etherFrame.dst, inPort))
-            if inPort == ROUTER_PORT1 and arpPacket.src_ip == HOST_IPADDR1:
-                self.HOST_MACADDR1 = arpPacket.src_mac
-            elif inPort == ROUTER_PORT2 and arpPacket.src_ip == HOST_IPADDR2:
-                self.HOST_MACADDR2 = arpPacket.src_mac
+        elif arpPacket.opcode == 2:
+            operation = "ARP Reply"
+
+        LOG.debug("receive %s %s => %s (port%d)"
+                       %(operation, etherFrame.src, etherFrame.dst, inPort))
+        self.print_etherFrame(etherFrame)
+        self.print_arpPacket(arpPacket)
+
+        if arpPacket.opcode == 1:
             self.reply_arp(datapath, etherFrame, arpPacket, arp_dstIp, inPort)
         elif arpPacket.opcode == 2:
-            LOG.debug("receive ARP reply %s => %s (port%d)"
-                       %(etherFrame.src, etherFrame.dst, inPort))
             if inPort == ROUTER_PORT1 and arpPacket.src_ip == HOST_IPADDR1:
-                self.HOST_MACADDR1 = arpPacket.src_mac
-                if self.HOST_MACADDR2 == None:
-                    self.send_arp(datapath, 1, ROUTER_MACADDR2, ROUTER_IPADDR2,
-                             "ff:ff:ff:ff:ff:ff", HOST_IPADDR2, ROUTER_PORT2)
-                    LOG.debug("send ARP request %s => %s (port%d)"
-                         % (ROUTER_MACADDR2, "ff:ff:ff:ff:ff:ff", ROUTER_PORT2))
+                self.HOST_MACADDR1 = etherFrame.src
             elif inPort == ROUTER_PORT2 and arpPacket.src_ip == HOST_IPADDR2:
-                self.HOST_MACADDR2 = arpPacket.src_mac
-                if self.HOST_MACADDR1 == None:
-                    self.send_arp(datapath, 1, ROUTER_MACADDR1, ROUTER_IPADDR1,
-                             "ff:ff:ff:ff:ff:ff", HOST_IPADDR1, ROUTER_PORT1)
-                    LOG.debug("send ARP request %s => %s (port%d)"
-                         % (ROUTER_MACADDR1, "ff:ff:ff:ff:ff:ff", ROUTER_PORT1))
+                self.HOST_MACADDR2 = etherFrame.src
+            if self.HOST_MACADDR1 != None and self.HOST_MACADDR2 != None:
+                self.send_flow(datapath)
 
 
     def reply_arp(self, datapath, etherFrame, arpPacket, arp_dstIp, inPort):
@@ -204,6 +199,19 @@ class SimpleRouter(app_manager.RyuApp):
             actions=actions,
             data=p.data)
         datapath.send_msg(out)
+
+
+    def send_flow(self, datapath):
+        LOG.debug("Send Flow_mod packet for %s", HOST_IPADDR2)
+        self.add_flow(datapath, ROUTER_PORT1, self.HOST_MACADDR1,
+                      ROUTER_MACADDR1, ether.ETH_TYPE_IP,
+                      HOST_IPADDR2, ROUTER_MACADDR2,
+                      self.HOST_MACADDR2, ROUTER_PORT2)
+        LOG.debug("Send Flow_mod packet for %s", HOST_IPADDR1)
+        self.add_flow(datapath, ROUTER_PORT2, self.HOST_MACADDR2,
+                      ROUTER_MACADDR2, ether.ETH_TYPE_IP,
+                      HOST_IPADDR1, ROUTER_MACADDR1,
+                      self.HOST_MACADDR1, ROUTER_PORT1)
 
 
     def add_flow(self, datapath, inPort, org_srcMac, org_dstMac, ethertype,

@@ -1,5 +1,6 @@
 import logging
 
+from operator import attrgetter
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER
@@ -8,17 +9,16 @@ from ryu.controller.handler import set_ev_cls
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import arp
-from ryu.lib.packet import ipv4
 from ryu.lib.packet.packet import Packet
 from ryu.lib.packet.ethernet import ethernet
 from ryu.lib.packet.arp import arp
-from ryu.lib.packet.ipv4 import ipv4
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto import ether
 from ryu.ofproto import inet
 
 LOG = logging.getLogger('SimpleArp')
 LOG.setLevel(logging.DEBUG)
+logging.basicConfig()
 
 HOST_IPADDR1 = "192.168.0.1"
 HOST_IPADDR2 = "192.168.1.1"
@@ -35,7 +35,6 @@ class SimpleArp(app_manager.RyuApp):
 
     HOST_MACADDR1 = None
     HOST_MACADDR2 = None
-    ADD_FLOW_FLAG = 0
 
     def __init__(self, *args, **kwargs):
         super(SimpleArp, self).__init__(*args, **kwargs)
@@ -88,33 +87,22 @@ class SimpleArp(app_manager.RyuApp):
         etherFrame = packet.get_protocol(ethernet)
         if etherFrame.ethertype == ether.ETH_TYPE_ARP:
             self.receive_arp(datapath, packet, etherFrame, inPort)
-        elif etherFrame.ethertype == ether.ETH_TYPE_IP:
-            self.receive_ip(datapath, packet, etherFrame, inPort)
+            return 0
         else:
             LOG.debug("Drop packet")
-
-
-    def receive_ip(self, datapath, packet, etherFrame, inPort):
-        ipPacket = packet.get_protocol(ipv4)
-        LOG.debug("receive IP %s => %s (port%d)"
-                   %(etherFrame.src, etherFrame.dst, inPort))
-
+            return 1
 
 
     def receive_arp(self, datapath, packet, etherFrame, inPort):
         arpPacket = packet.get_protocol(arp)
+
         if arpPacket.opcode == 1:
             arp_dstIp = arpPacket.dst_ip
             LOG.debug("receive ARP request %s => %s (port%d)"
                        %(etherFrame.src, etherFrame.dst, inPort))
-            if inPort == ROUTER_PORT1 and arpPacket.src_ip == HOST_IPADDR1:
-                self.HOST_MACADDR1 = arpPacket.src_mac
-            elif inPort == ROUTER_PORT2 and arpPacket.src_ip == HOST_IPADDR2:
-                self.HOST_MACADDR2 = arpPacket.src_mac
             self.reply_arp(datapath, etherFrame, arpPacket, arp_dstIp, inPort)
         elif arpPacket.opcode == 2:
-            LOG.debug("receive ARP reply %s => %s (port%d)"
-                       %(etherFrame.src, etherFrame.dst, inPort))
+            pass
 
 
     def reply_arp(self, datapath, etherFrame, arpPacket, arp_dstIp, inPort):
@@ -157,6 +145,3 @@ class SimpleArp(app_manager.RyuApp):
             actions=actions,
             data=p.data)
         datapath.send_msg(out)
-
-
-

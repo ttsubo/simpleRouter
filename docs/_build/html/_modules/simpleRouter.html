@@ -1,0 +1,326 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>simpleRouter &mdash; ryu-app  documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="ryu-app  documentation" href="../index.html" />
+    <link rel="up" title="Module code" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">ryu-app  documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for simpleRouter</h1><div class="highlight"><pre>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">from</span> <span class="nn">operator</span> <span class="kn">import</span> <span class="n">attrgetter</span>
+<span class="kn">from</span> <span class="nn">ryu.base</span> <span class="kn">import</span> <span class="n">app_manager</span>
+<span class="kn">from</span> <span class="nn">ryu.controller</span> <span class="kn">import</span> <span class="n">ofp_event</span>
+<span class="kn">from</span> <span class="nn">ryu.controller.handler</span> <span class="kn">import</span> <span class="n">CONFIG_DISPATCHER</span>
+<span class="kn">from</span> <span class="nn">ryu.controller.handler</span> <span class="kn">import</span> <span class="n">MAIN_DISPATCHER</span>
+<span class="kn">from</span> <span class="nn">ryu.controller.handler</span> <span class="kn">import</span> <span class="n">set_ev_cls</span>
+<span class="kn">from</span> <span class="nn">ryu.lib.packet</span> <span class="kn">import</span> <span class="n">packet</span>
+<span class="kn">from</span> <span class="nn">ryu.lib.packet</span> <span class="kn">import</span> <span class="n">ethernet</span>
+<span class="kn">from</span> <span class="nn">ryu.lib.packet</span> <span class="kn">import</span> <span class="n">arp</span>
+<span class="kn">from</span> <span class="nn">ryu.lib.packet</span> <span class="kn">import</span> <span class="n">ipv4</span>
+<span class="kn">from</span> <span class="nn">ryu.lib.packet.packet</span> <span class="kn">import</span> <span class="n">Packet</span>
+<span class="kn">from</span> <span class="nn">ryu.lib.packet.ethernet</span> <span class="kn">import</span> <span class="n">ethernet</span>
+<span class="kn">from</span> <span class="nn">ryu.lib.packet.arp</span> <span class="kn">import</span> <span class="n">arp</span>
+<span class="kn">from</span> <span class="nn">ryu.lib.packet.ipv4</span> <span class="kn">import</span> <span class="n">ipv4</span>
+<span class="kn">from</span> <span class="nn">ryu.ofproto</span> <span class="kn">import</span> <span class="n">ofproto_v1_3</span>
+<span class="kn">from</span> <span class="nn">ryu.ofproto</span> <span class="kn">import</span> <span class="n">ether</span>
+<span class="kn">from</span> <span class="nn">ryu.ofproto</span> <span class="kn">import</span> <span class="n">inet</span>
+
+<span class="n">LOG</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s">&#39;SimpleRouter&#39;</span><span class="p">)</span>
+<span class="n">LOG</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">()</span>
+
+<span class="n">HOST_IPADDR1</span> <span class="o">=</span> <span class="s">&quot;192.168.0.1&quot;</span>
+<span class="n">HOST_IPADDR2</span> <span class="o">=</span> <span class="s">&quot;192.168.1.1&quot;</span>
+<span class="n">ROUTER_IPADDR1</span> <span class="o">=</span> <span class="s">&quot;192.168.0.10&quot;</span>
+<span class="n">ROUTER_IPADDR2</span> <span class="o">=</span> <span class="s">&quot;192.168.1.10&quot;</span>
+<span class="n">ROUTER_MACADDR1</span> <span class="o">=</span> <span class="s">&quot;00:00:00:00:00:01&quot;</span>
+<span class="n">ROUTER_MACADDR2</span> <span class="o">=</span> <span class="s">&quot;00:00:00:00:00:02&quot;</span>
+<span class="n">ROUTER_PORT1</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">ROUTER_PORT2</span> <span class="o">=</span> <span class="mi">2</span>
+
+
+<div class="viewcode-block" id="SimpleRouter"><a class="viewcode-back" href="../simpleRouter.html#simpleRouter.SimpleRouter">[docs]</a><span class="k">class</span> <span class="nc">SimpleRouter</span><span class="p">(</span><span class="n">app_manager</span><span class="o">.</span><span class="n">RyuApp</span><span class="p">):</span>
+    <span class="n">OFP_VERSIONS</span> <span class="o">=</span> <span class="p">[</span><span class="n">ofproto_v1_3</span><span class="o">.</span><span class="n">OFP_VERSION</span><span class="p">]</span>
+
+    <span class="n">HOST_MACADDR1</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="n">HOST_MACADDR2</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="n">ADD_FLOW_FLAG</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SimpleRouter</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+    <span class="nd">@set_ev_cls</span><span class="p">(</span><span class="n">ofp_event</span><span class="o">.</span><span class="n">EventOFPSwitchFeatures</span><span class="p">,</span> <span class="n">CONFIG_DISPATCHER</span><span class="p">)</span>
+<div class="viewcode-block" id="SimpleRouter.switch_features_handler"><a class="viewcode-back" href="../simpleRouter.html#simpleRouter.SimpleRouter.switch_features_handler">[docs]</a>    <span class="k">def</span> <span class="nf">switch_features_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ev</span><span class="p">):</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">ev</span><span class="o">.</span><span class="n">msg</span>
+        <span class="n">datapath</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">datapath</span>
+        <span class="n">ofproto</span> <span class="o">=</span> <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto</span>
+        <span class="n">datapath</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">datapath_id</span>
+        <span class="n">ofproto_parser</span> <span class="o">=</span> <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto_parser</span>
+
+        <span class="n">set_config</span> <span class="o">=</span> <span class="n">ofproto_parser</span><span class="o">.</span><span class="n">OFPSetConfig</span><span class="p">(</span>
+            <span class="n">datapath</span><span class="p">,</span>
+            <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto</span><span class="o">.</span><span class="n">OFPCML_MAX</span>
+        <span class="p">)</span>
+        <span class="n">datapath</span><span class="o">.</span><span class="n">send_msg</span><span class="p">(</span><span class="n">set_config</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">install_table_miss</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="n">datapath</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="SimpleRouter.install_table_miss"><a class="viewcode-back" href="../simpleRouter.html#simpleRouter.SimpleRouter.install_table_miss">[docs]</a>    <span class="k">def</span> <span class="nf">install_table_miss</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">datapath</span><span class="p">,</span> <span class="n">dpid</span><span class="p">):</span>
+        <span class="n">datapath</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">dpid</span>
+
+        <span class="n">match</span> <span class="o">=</span> <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto_parser</span><span class="o">.</span><span class="n">OFPMatch</span><span class="p">()</span>
+
+        <span class="n">actions</span> <span class="o">=</span> <span class="p">[</span><span class="n">datapath</span><span class="o">.</span><span class="n">ofproto_parser</span><span class="o">.</span><span class="n">OFPActionOutput</span><span class="p">(</span>
+                <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto</span><span class="o">.</span><span class="n">OFPP_CONTROLLER</span><span class="p">,</span>
+                <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto</span><span class="o">.</span><span class="n">OFPCML_NO_BUFFER</span><span class="p">)]</span>
+        <span class="n">inst</span> <span class="o">=</span> <span class="p">[</span><span class="n">datapath</span><span class="o">.</span><span class="n">ofproto_parser</span><span class="o">.</span><span class="n">OFPInstructionActions</span><span class="p">(</span>
+                <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto</span><span class="o">.</span><span class="n">OFPIT_APPLY_ACTIONS</span><span class="p">,</span> <span class="n">actions</span><span class="p">)]</span>
+        <span class="n">mod</span> <span class="o">=</span> <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto_parser</span><span class="o">.</span><span class="n">OFPFlowMod</span><span class="p">(</span>
+                <span class="n">datapath</span><span class="o">=</span><span class="n">datapath</span><span class="p">,</span>
+                <span class="n">priority</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">buffer_id</span><span class="o">=</span><span class="mh">0xffffffff</span><span class="p">,</span>
+                <span class="n">match</span><span class="o">=</span><span class="n">match</span><span class="p">,</span>
+                <span class="n">instructions</span><span class="o">=</span><span class="n">inst</span><span class="p">)</span>
+        <span class="n">datapath</span><span class="o">.</span><span class="n">send_msg</span><span class="p">(</span><span class="n">mod</span><span class="p">)</span>
+
+</div>
+    <span class="nd">@set_ev_cls</span><span class="p">(</span><span class="n">ofp_event</span><span class="o">.</span><span class="n">EventOFPPacketIn</span><span class="p">,</span> <span class="n">MAIN_DISPATCHER</span><span class="p">)</span>
+<div class="viewcode-block" id="SimpleRouter.packet_in_handler"><a class="viewcode-back" href="../simpleRouter.html#simpleRouter.SimpleRouter.packet_in_handler">[docs]</a>    <span class="k">def</span> <span class="nf">packet_in_handler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ev</span><span class="p">):</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">ev</span><span class="o">.</span><span class="n">msg</span>
+        <span class="n">datapath</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">datapath</span>
+        <span class="n">ofproto</span> <span class="o">=</span> <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto</span>
+        <span class="n">inPort</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">match</span><span class="p">[</span><span class="s">&#39;in_port&#39;</span><span class="p">]</span>
+
+        <span class="n">packet</span> <span class="o">=</span> <span class="n">Packet</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">etherFrame</span> <span class="o">=</span> <span class="n">packet</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">ethernet</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">etherFrame</span><span class="o">.</span><span class="n">ethertype</span> <span class="o">==</span> <span class="n">ether</span><span class="o">.</span><span class="n">ETH_TYPE_ARP</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">receive_arp</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="n">packet</span><span class="p">,</span> <span class="n">etherFrame</span><span class="p">,</span> <span class="n">inPort</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mi">0</span>
+        <span class="k">elif</span> <span class="n">etherFrame</span><span class="o">.</span><span class="n">ethertype</span> <span class="o">==</span> <span class="n">ether</span><span class="o">.</span><span class="n">ETH_TYPE_IP</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">receive_ip</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="n">packet</span><span class="p">,</span> <span class="n">etherFrame</span><span class="p">,</span> <span class="n">inPort</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Drop packet&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="mi">2</span>
+
+</div>
+<div class="viewcode-block" id="SimpleRouter.receive_ip"><a class="viewcode-back" href="../simpleRouter.html#simpleRouter.SimpleRouter.receive_ip">[docs]</a>    <span class="k">def</span> <span class="nf">receive_ip</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">datapath</span><span class="p">,</span> <span class="n">packet</span><span class="p">,</span> <span class="n">etherFrame</span><span class="p">,</span> <span class="n">inPort</span><span class="p">):</span>
+        <span class="n">ipPacket</span> <span class="o">=</span> <span class="n">packet</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">ipv4</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">inPort</span> <span class="o">==</span> <span class="n">ROUTER_PORT1</span> <span class="ow">and</span> <span class="n">ipPacket</span><span class="o">.</span><span class="n">src</span> <span class="o">==</span> <span class="n">HOST_IPADDR1</span><span class="p">:</span> 
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR2</span> <span class="o">==</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Drop packet&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">send_arp</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ROUTER_MACADDR2</span><span class="p">,</span> <span class="n">ROUTER_IPADDR2</span><span class="p">,</span>
+                             <span class="s">&quot;ff:ff:ff:ff:ff:ff&quot;</span><span class="p">,</span> <span class="n">HOST_IPADDR2</span><span class="p">,</span> <span class="n">ROUTER_PORT2</span><span class="p">)</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;send ARP request </span><span class="si">%s</span><span class="s"> =&gt; </span><span class="si">%s</span><span class="s"> (port</span><span class="si">%d</span><span class="s">)&quot;</span>
+                          <span class="o">%</span><span class="p">(</span><span class="n">ROUTER_MACADDR2</span><span class="p">,</span> <span class="s">&quot;ff:ff:ff:ff:ff:ff&quot;</span><span class="p">,</span> <span class="n">ROUTER_PORT2</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR2</span> <span class="o">!=</span> <span class="bp">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR1</span> <span class="o">!=</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Drop packet&quot;</span><span class="p">)</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Send Flow_mod packet for </span><span class="si">%s</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">HOST_IPADDR2</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">add_flow</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="n">ROUTER_PORT1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR1</span><span class="p">,</span>
+                              <span class="n">ROUTER_MACADDR1</span><span class="p">,</span> <span class="n">ether</span><span class="o">.</span><span class="n">ETH_TYPE_IP</span><span class="p">,</span>
+                              <span class="n">HOST_IPADDR2</span><span class="p">,</span> <span class="n">ROUTER_MACADDR2</span><span class="p">,</span>
+                              <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR2</span><span class="p">,</span> <span class="n">ROUTER_PORT2</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">inPort</span> <span class="o">==</span> <span class="n">ROUTER_PORT2</span> <span class="ow">and</span> <span class="n">ipPacket</span><span class="o">.</span><span class="n">src</span> <span class="o">==</span> <span class="n">HOST_IPADDR2</span><span class="p">:</span> 
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR1</span> <span class="o">==</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Drop packet&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">send_arp</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ROUTER_MACADDR1</span><span class="p">,</span> <span class="n">ROUTER_IPADDR1</span><span class="p">,</span>
+                             <span class="s">&quot;ff:ff:ff:ff:ff:ff&quot;</span><span class="p">,</span> <span class="n">HOST_IPADDR1</span><span class="p">,</span> <span class="n">ROUTER_PORT1</span><span class="p">)</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;send ARP request </span><span class="si">%s</span><span class="s"> =&gt; </span><span class="si">%s</span><span class="s"> (port</span><span class="si">%d</span><span class="s">)&quot;</span>
+                          <span class="o">%</span><span class="p">(</span><span class="n">ROUTER_MACADDR1</span><span class="p">,</span> <span class="s">&quot;ff:ff:ff:ff:ff:ff&quot;</span><span class="p">,</span> <span class="n">ROUTER_PORT2</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR1</span> <span class="o">!=</span> <span class="bp">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR2</span> <span class="o">!=</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Drop packet&quot;</span><span class="p">)</span>
+                <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;Send Flow_mod packet for </span><span class="si">%s</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">HOST_IPADDR1</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">add_flow</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="n">ROUTER_PORT2</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR2</span><span class="p">,</span>
+                              <span class="n">ROUTER_MACADDR2</span><span class="p">,</span> <span class="n">ether</span><span class="o">.</span><span class="n">ETH_TYPE_IP</span><span class="p">,</span>
+                              <span class="n">HOST_IPADDR1</span><span class="p">,</span> <span class="n">ROUTER_MACADDR1</span><span class="p">,</span>
+                              <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR1</span><span class="p">,</span> <span class="n">ROUTER_PORT1</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="SimpleRouter.receive_arp"><a class="viewcode-back" href="../simpleRouter.html#simpleRouter.SimpleRouter.receive_arp">[docs]</a>    <span class="k">def</span> <span class="nf">receive_arp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">datapath</span><span class="p">,</span> <span class="n">packet</span><span class="p">,</span> <span class="n">etherFrame</span><span class="p">,</span> <span class="n">inPort</span><span class="p">):</span>
+        <span class="n">arpPacket</span> <span class="o">=</span> <span class="n">packet</span><span class="o">.</span><span class="n">get_protocol</span><span class="p">(</span><span class="n">arp</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">arpPacket</span><span class="o">.</span><span class="n">opcode</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">arp_dstIp</span> <span class="o">=</span> <span class="n">arpPacket</span><span class="o">.</span><span class="n">dst_ip</span>
+            <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;receive ARP request </span><span class="si">%s</span><span class="s"> =&gt; </span><span class="si">%s</span><span class="s"> (port</span><span class="si">%d</span><span class="s">)&quot;</span>
+                       <span class="o">%</span><span class="p">(</span><span class="n">etherFrame</span><span class="o">.</span><span class="n">src</span><span class="p">,</span> <span class="n">etherFrame</span><span class="o">.</span><span class="n">dst</span><span class="p">,</span> <span class="n">inPort</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">inPort</span> <span class="o">==</span> <span class="n">ROUTER_PORT1</span> <span class="ow">and</span> <span class="n">arpPacket</span><span class="o">.</span><span class="n">src_ip</span> <span class="o">==</span> <span class="n">HOST_IPADDR1</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR1</span> <span class="o">=</span> <span class="n">arpPacket</span><span class="o">.</span><span class="n">src_mac</span>
+            <span class="k">elif</span> <span class="n">inPort</span> <span class="o">==</span> <span class="n">ROUTER_PORT2</span> <span class="ow">and</span> <span class="n">arpPacket</span><span class="o">.</span><span class="n">src_ip</span> <span class="o">==</span> <span class="n">HOST_IPADDR2</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR2</span> <span class="o">=</span> <span class="n">arpPacket</span><span class="o">.</span><span class="n">src_mac</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reply_arp</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="n">etherFrame</span><span class="p">,</span> <span class="n">arpPacket</span><span class="p">,</span> <span class="n">arp_dstIp</span><span class="p">,</span> <span class="n">inPort</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">arpPacket</span><span class="o">.</span><span class="n">opcode</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;receive ARP reply </span><span class="si">%s</span><span class="s"> =&gt; </span><span class="si">%s</span><span class="s"> (port</span><span class="si">%d</span><span class="s">)&quot;</span>
+                       <span class="o">%</span><span class="p">(</span><span class="n">etherFrame</span><span class="o">.</span><span class="n">src</span><span class="p">,</span> <span class="n">etherFrame</span><span class="o">.</span><span class="n">dst</span><span class="p">,</span> <span class="n">inPort</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">inPort</span> <span class="o">==</span> <span class="n">ROUTER_PORT1</span> <span class="ow">and</span> <span class="n">arpPacket</span><span class="o">.</span><span class="n">src_ip</span> <span class="o">==</span> <span class="n">HOST_IPADDR1</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR1</span> <span class="o">=</span> <span class="n">arpPacket</span><span class="o">.</span><span class="n">src_mac</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR2</span> <span class="o">==</span> <span class="bp">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">send_arp</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ROUTER_MACADDR2</span><span class="p">,</span> <span class="n">ROUTER_IPADDR2</span><span class="p">,</span>
+                             <span class="s">&quot;ff:ff:ff:ff:ff:ff&quot;</span><span class="p">,</span> <span class="n">HOST_IPADDR2</span><span class="p">,</span> <span class="n">ROUTER_PORT2</span><span class="p">)</span>
+                    <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;send ARP request </span><span class="si">%s</span><span class="s"> =&gt; </span><span class="si">%s</span><span class="s"> (port</span><span class="si">%d</span><span class="s">)&quot;</span>
+                         <span class="o">%</span> <span class="p">(</span><span class="n">ROUTER_MACADDR2</span><span class="p">,</span> <span class="s">&quot;ff:ff:ff:ff:ff:ff&quot;</span><span class="p">,</span> <span class="n">ROUTER_PORT2</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="n">inPort</span> <span class="o">==</span> <span class="n">ROUTER_PORT2</span> <span class="ow">and</span> <span class="n">arpPacket</span><span class="o">.</span><span class="n">src_ip</span> <span class="o">==</span> <span class="n">HOST_IPADDR2</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR2</span> <span class="o">=</span> <span class="n">arpPacket</span><span class="o">.</span><span class="n">src_mac</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">HOST_MACADDR1</span> <span class="o">==</span> <span class="bp">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">send_arp</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ROUTER_MACADDR1</span><span class="p">,</span> <span class="n">ROUTER_IPADDR1</span><span class="p">,</span>
+                             <span class="s">&quot;ff:ff:ff:ff:ff:ff&quot;</span><span class="p">,</span> <span class="n">HOST_IPADDR1</span><span class="p">,</span> <span class="n">ROUTER_PORT1</span><span class="p">)</span>
+                    <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;send ARP request </span><span class="si">%s</span><span class="s"> =&gt; </span><span class="si">%s</span><span class="s"> (port</span><span class="si">%d</span><span class="s">)&quot;</span>
+                         <span class="o">%</span> <span class="p">(</span><span class="n">ROUTER_MACADDR1</span><span class="p">,</span> <span class="s">&quot;ff:ff:ff:ff:ff:ff&quot;</span><span class="p">,</span> <span class="n">ROUTER_PORT1</span><span class="p">))</span>
+
+</div>
+<div class="viewcode-block" id="SimpleRouter.reply_arp"><a class="viewcode-back" href="../simpleRouter.html#simpleRouter.SimpleRouter.reply_arp">[docs]</a>    <span class="k">def</span> <span class="nf">reply_arp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">datapath</span><span class="p">,</span> <span class="n">etherFrame</span><span class="p">,</span> <span class="n">arpPacket</span><span class="p">,</span> <span class="n">arp_dstIp</span><span class="p">,</span> <span class="n">inPort</span><span class="p">):</span>
+        <span class="n">dstIp</span> <span class="o">=</span> <span class="n">arpPacket</span><span class="o">.</span><span class="n">src_ip</span>
+        <span class="n">srcIp</span> <span class="o">=</span> <span class="n">arpPacket</span><span class="o">.</span><span class="n">dst_ip</span>
+        <span class="n">dstMac</span> <span class="o">=</span> <span class="n">etherFrame</span><span class="o">.</span><span class="n">src</span>
+        <span class="k">if</span> <span class="n">arp_dstIp</span> <span class="o">==</span> <span class="n">ROUTER_IPADDR1</span><span class="p">:</span>
+            <span class="n">srcMac</span> <span class="o">=</span> <span class="n">ROUTER_MACADDR1</span>
+            <span class="n">outPort</span> <span class="o">=</span> <span class="n">ROUTER_PORT1</span>
+        <span class="k">elif</span> <span class="n">arp_dstIp</span> <span class="o">==</span> <span class="n">ROUTER_IPADDR2</span><span class="p">:</span>
+            <span class="n">srcMac</span> <span class="o">=</span> <span class="n">ROUTER_MACADDR2</span>
+            <span class="n">outPort</span> <span class="o">=</span> <span class="n">ROUTER_PORT2</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;unknown arp requst received !&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">send_arp</span><span class="p">(</span><span class="n">datapath</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">srcMac</span><span class="p">,</span> <span class="n">srcIp</span><span class="p">,</span> <span class="n">dstMac</span><span class="p">,</span> <span class="n">dstIp</span><span class="p">,</span> <span class="n">outPort</span><span class="p">)</span>
+        <span class="n">LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s">&quot;send ARP reply </span><span class="si">%s</span><span class="s"> =&gt; </span><span class="si">%s</span><span class="s"> (port</span><span class="si">%d</span><span class="s">)&quot;</span> <span class="o">%</span><span class="p">(</span><span class="n">srcMac</span><span class="p">,</span> <span class="n">dstMac</span><span class="p">,</span> <span class="n">outPort</span><span class="p">))</span>
+
+</div>
+<div class="viewcode-block" id="SimpleRouter.send_arp"><a class="viewcode-back" href="../simpleRouter.html#simpleRouter.SimpleRouter.send_arp">[docs]</a>    <span class="k">def</span> <span class="nf">send_arp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">datapath</span><span class="p">,</span> <span class="n">opcode</span><span class="p">,</span> <span class="n">srcMac</span><span class="p">,</span> <span class="n">srcIp</span><span class="p">,</span> <span class="n">dstMac</span><span class="p">,</span> <span class="n">dstIp</span><span class="p">,</span> <span class="n">outPort</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">opcode</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">targetMac</span> <span class="o">=</span> <span class="s">&quot;00:00:00:00:00:00&quot;</span>
+            <span class="n">targetIp</span> <span class="o">=</span> <span class="n">dstIp</span>
+        <span class="k">elif</span> <span class="n">opcode</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">targetMac</span> <span class="o">=</span> <span class="n">dstMac</span>
+            <span class="n">targetIp</span> <span class="o">=</span> <span class="n">dstIp</span>
+
+        <span class="n">e</span> <span class="o">=</span> <span class="n">ethernet</span><span class="p">(</span><span class="n">dstMac</span><span class="p">,</span> <span class="n">srcMac</span><span class="p">,</span> <span class="n">ether</span><span class="o">.</span><span class="n">ETH_TYPE_ARP</span><span class="p">)</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="n">arp</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mh">0x0800</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">opcode</span><span class="p">,</span> <span class="n">srcMac</span><span class="p">,</span> <span class="n">srcIp</span><span class="p">,</span> <span class="n">targetMac</span><span class="p">,</span> <span class="n">targetIp</span><span class="p">)</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">Packet</span><span class="p">()</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">add_protocol</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">add_protocol</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">serialize</span><span class="p">()</span>
+
+        <span class="n">actions</span> <span class="o">=</span> <span class="p">[</span><span class="n">datapath</span><span class="o">.</span><span class="n">ofproto_parser</span><span class="o">.</span><span class="n">OFPActionOutput</span><span class="p">(</span><span class="n">outPort</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto_parser</span><span class="o">.</span><span class="n">OFPPacketOut</span><span class="p">(</span>
+            <span class="n">datapath</span><span class="o">=</span><span class="n">datapath</span><span class="p">,</span>
+            <span class="n">buffer_id</span><span class="o">=</span><span class="mh">0xffffffff</span><span class="p">,</span>
+            <span class="n">in_port</span><span class="o">=</span><span class="n">datapath</span><span class="o">.</span><span class="n">ofproto</span><span class="o">.</span><span class="n">OFPP_CONTROLLER</span><span class="p">,</span>
+            <span class="n">actions</span><span class="o">=</span><span class="n">actions</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">p</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">datapath</span><span class="o">.</span><span class="n">send_msg</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="SimpleRouter.add_flow"><a class="viewcode-back" href="../simpleRouter.html#simpleRouter.SimpleRouter.add_flow">[docs]</a>    <span class="k">def</span> <span class="nf">add_flow</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">datapath</span><span class="p">,</span> <span class="n">inPort</span><span class="p">,</span> <span class="n">org_srcMac</span><span class="p">,</span> <span class="n">org_dstMac</span><span class="p">,</span> <span class="n">ethertype</span><span class="p">,</span>
+                 <span class="n">targetIp</span><span class="p">,</span> <span class="n">mod_srcMac</span><span class="p">,</span> <span class="n">mod_dstMac</span><span class="p">,</span> <span class="n">outPort</span><span class="p">):</span>
+
+        <span class="n">match</span> <span class="o">=</span> <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto_parser</span><span class="o">.</span><span class="n">OFPMatch</span><span class="p">(</span>
+                <span class="n">in_port</span><span class="o">=</span><span class="n">inPort</span><span class="p">,</span>
+                <span class="n">eth_src</span><span class="o">=</span><span class="n">org_srcMac</span><span class="p">,</span>
+                <span class="n">eth_dst</span><span class="o">=</span><span class="n">org_dstMac</span><span class="p">,</span>
+                <span class="n">eth_type</span><span class="o">=</span><span class="n">ethertype</span><span class="p">,</span>
+                <span class="n">ipv4_dst</span><span class="o">=</span><span class="n">targetIp</span> <span class="p">)</span>
+        <span class="n">actions</span> <span class="o">=</span><span class="p">[</span><span class="n">datapath</span><span class="o">.</span><span class="n">ofproto_parser</span><span class="o">.</span><span class="n">OFPActionSetField</span><span class="p">(</span><span class="n">eth_src</span><span class="o">=</span><span class="n">mod_srcMac</span><span class="p">),</span>
+                <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto_parser</span><span class="o">.</span><span class="n">OFPActionSetField</span><span class="p">(</span><span class="n">eth_dst</span><span class="o">=</span><span class="n">mod_dstMac</span><span class="p">),</span>
+                <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto_parser</span><span class="o">.</span><span class="n">OFPActionOutput</span><span class="p">(</span><span class="n">outPort</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span>
+        <span class="n">inst</span> <span class="o">=</span> <span class="p">[</span><span class="n">datapath</span><span class="o">.</span><span class="n">ofproto_parser</span><span class="o">.</span><span class="n">OFPInstructionActions</span><span class="p">(</span>
+                <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto</span><span class="o">.</span><span class="n">OFPIT_APPLY_ACTIONS</span><span class="p">,</span> <span class="n">actions</span><span class="p">)]</span>
+        <span class="n">mod</span> <span class="o">=</span> <span class="n">datapath</span><span class="o">.</span><span class="n">ofproto_parser</span><span class="o">.</span><span class="n">OFPFlowMod</span><span class="p">(</span>
+                <span class="n">cookie</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">cookie_mask</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">flags</span><span class="o">=</span><span class="n">datapath</span><span class="o">.</span><span class="n">ofproto</span><span class="o">.</span><span class="n">OFPFF_CHECK_OVERLAP</span><span class="p">,</span>
+                <span class="n">table_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">command</span><span class="o">=</span><span class="n">datapath</span><span class="o">.</span><span class="n">ofproto</span><span class="o">.</span><span class="n">OFPFC_ADD</span><span class="p">,</span>
+                <span class="n">datapath</span><span class="o">=</span><span class="n">datapath</span><span class="p">,</span>
+                <span class="n">idle_timeout</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">hard_timeout</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">priority</span><span class="o">=</span><span class="mh">0xff</span><span class="p">,</span>
+                <span class="n">buffer_id</span><span class="o">=</span><span class="mh">0xffffffff</span><span class="p">,</span>
+                <span class="n">out_port</span><span class="o">=</span><span class="n">datapath</span><span class="o">.</span><span class="n">ofproto</span><span class="o">.</span><span class="n">OFPP_ANY</span><span class="p">,</span>
+                <span class="n">out_group</span><span class="o">=</span><span class="n">datapath</span><span class="o">.</span><span class="n">ofproto</span><span class="o">.</span><span class="n">OFPG_ANY</span><span class="p">,</span>
+                <span class="n">match</span><span class="o">=</span><span class="n">match</span><span class="p">,</span>
+                <span class="n">instructions</span><span class="o">=</span><span class="n">inst</span><span class="p">)</span>
+        <span class="n">datapath</span><span class="o">.</span><span class="n">send_msg</span><span class="p">(</span><span class="n">mod</span><span class="p">)</span>
+</pre></div></div></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../index.html">ryu-app  documentation</a> &raquo;</li>
+          <li><a href="index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Author.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.
+    </div>
+  </body>
+</html>

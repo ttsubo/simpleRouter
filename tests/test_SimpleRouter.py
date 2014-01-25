@@ -2,7 +2,7 @@
 
 import unittest
 import logging
-from simpleForward import SimpleForward
+from simpleRouter import SimpleRouter
 from ryu.controller import ofp_event
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import packet
@@ -37,7 +37,7 @@ class _Datapath(object):
     def send_msg(self, msg):
         pass
 
-class TestSimpleForward(unittest.TestCase):
+class TestSimpleRouter(unittest.TestCase):
     def setUp(self):
         pass
 
@@ -47,15 +47,22 @@ class TestSimpleForward(unittest.TestCase):
     def test_Packet_in_1_arpRequest(self):
         print "*** Case1: HOST1からARP Request受信 ***"
 
-        sr = SimpleForward()
+        sr = SimpleRouter()
+        sr.ROUTER_IPADDR1 = "192.168.0.10"
+        sr.ROUTER_IPADDR2 = "192.168.1.10"
+        sr.ROUTER_MACADDR1 = "00:00:00:00:00:01"
+        sr.ROUTER_MACADDR2 = "00:00:00:00:00:02"
+        sr.HOST_IPADDR1 = "192.168.0.1"
+        sr.HOST_IPADDR2 = "192.168.1.1"
+
         dstMac = "ff:ff:ff:ff:ff:ff"
         srcMac = HOST_MACADDR1
         srcIp = HOST_IPADDR1
         dstIp = ROUTER_IPADDR1
         targetMac = dstMac
         targetIp = dstIp
-
         datapath = _Datapath()
+
         e = ethernet(dstMac, srcMac, ether.ETH_TYPE_ARP)
         a = arp(1, 0x0800, 6, 4, 1, srcMac, srcIp, targetMac, targetIp)
         p = Packet()
@@ -75,7 +82,14 @@ class TestSimpleForward(unittest.TestCase):
     def test_Packet_in_2_icmpEcho1(self):
         print "*** Case2: HOST2のMAC未学習の時、HOST1からICMP Echoを受信 ***"
 
-        sr = SimpleForward()
+        sr = SimpleRouter()
+        sr.ROUTER_IPADDR1 = "192.168.0.10"
+        sr.ROUTER_IPADDR2 = "192.168.1.10"
+        sr.ROUTER_MACADDR1 = "00:00:00:00:00:01"
+        sr.ROUTER_MACADDR2 = "00:00:00:00:00:02"
+        sr.HOST_IPADDR1 = "192.168.0.1"
+        sr.HOST_IPADDR2 = "192.168.1.1"
+
         dstMac = ROUTER_MACADDR1
         srcMac = HOST_MACADDR1
         srcIp = HOST_IPADDR1
@@ -102,14 +116,20 @@ class TestSimpleForward(unittest.TestCase):
         ev = ofp_event.EventOFPPacketIn(packetIn)
 
         result = sr.packet_in_handler(ev)
-        self.assertEqual(result, 1)
+        self.assertEqual(result, 0)
         print ""
 
 
     def test_Packet_in_3_arpReply2(self):
         print "*** Case3: HOST1のMAC学習済の時、HOST2からARP Replyを受信 ***"
 
-        sr = SimpleForward()
+        sr = SimpleRouter()
+        sr.ROUTER_IPADDR1 = "192.168.0.10"
+        sr.ROUTER_IPADDR2 = "192.168.1.10"
+        sr.ROUTER_MACADDR1 = "00:00:00:00:00:01"
+        sr.ROUTER_MACADDR2 = "00:00:00:00:00:02"
+        sr.HOST_IPADDR1 = "192.168.0.1"
+        sr.HOST_IPADDR2 = "192.168.1.1"
         sr.HOST_MACADDR1 = HOST_MACADDR1
         sr.HOST_MACADDR2 = HOST_MACADDR2
 
@@ -140,7 +160,13 @@ class TestSimpleForward(unittest.TestCase):
     def test_Packet_in_4_icmpEcho2(self):
         print "*** Case4: HOST2からHOST1以外の宛先IPへのIPパケットを受信 ***"
 
-        sr = SimpleForward()
+        sr = SimpleRouter()
+        sr.ROUTER_IPADDR1 = "192.168.0.10"
+        sr.ROUTER_IPADDR2 = "192.168.1.10"
+        sr.ROUTER_MACADDR1 = "00:00:00:00:00:01"
+        sr.ROUTER_MACADDR2 = "00:00:00:00:00:02"
+        sr.HOST_IPADDR1 = "192.168.0.1"
+        sr.HOST_IPADDR2 = "192.168.1.1"
         sr.HOST_MACADDR1 = HOST_MACADDR1
         sr.HOST_MACADDR2 = HOST_MACADDR2
 
@@ -165,7 +191,7 @@ class TestSimpleForward(unittest.TestCase):
         ev = ofp_event.EventOFPPacketIn(packetIn)
 
         result = sr.packet_in_handler(ev)
-        self.assertEqual(result, 1)
+        self.assertEqual(result, 0)
         print ""
 
 

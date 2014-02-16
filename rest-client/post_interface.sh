@@ -29,12 +29,6 @@ def request_info(operation, url_path, method, request):
         print url_path
         print request
         session.request("POST", url_path, request, header)
-    elif method == "PUT":
-        request = request
-        print url_path
-        print request
-        session.request("PUT", url_path, request, header)
-
 
     session.set_debuglevel(4)
     print "----------"
@@ -42,31 +36,27 @@ def request_info(operation, url_path, method, request):
 
 
 ##################
-# ping
+# create_interface
 ##################
 
-def start_ping(dpid, hostIp, data, hostMac, routerMac, routerIp, outPort):
-    operation = "ping"
-    url_path = "/openflow/" + dpid + "/ping"
-    method = "PUT"
+def start_create_interface(dpid, port, macaddress, ipaddress, opposite_ipaddress):
+    operation = "create_interface"
+    url_path = "/openflow/" + dpid + "/interface"
+    method = "POST"
     request = '''
 {
-"ping": {
-"hostIp": "%s",
-"data": "%s",
-"hostMac": "%s",
-"routerMac": "%s",
-"routerIp": "%s",
-"outPort": "%s"
+"interface": {
+"port": "%s",
+"macaddress": "%s",
+"ipaddress": "%s",
+"opposite_ipaddress": "%s"
 }
-}'''% (hostIp, data, hostMac, routerMac, routerIp, outPort)
+}'''% (port, macaddress, ipaddress, opposite_ipaddress)
 
-    ping_result = request_info(operation, url_path, method, request)
+    interface_result = request_info(operation, url_path, method, request)
     print "----------"
-    print json.dumps(ping_result, sort_keys=False, indent=4)
+    print json.dumps(interface_result, sort_keys=False, indent=4)
     print ""
-
-
 
 
 ##############
@@ -75,15 +65,20 @@ def start_ping(dpid, hostIp, data, hostMac, routerMac, routerIp, outPort):
 
 def main():
     dpid = "0000000000000001"
+    port = "1"
+    macaddress = "00:00:00:00:00:01"
+    ipaddress = "192.168.0.10"
+    opposite_ipaddress = "192.168.0.1"
+    start_create_interface(dpid, port, macaddress, ipaddress, opposite_ipaddress)
 
-    hostIp = "192.168.0.1"
-#    hostIp = "172.16.101.1"
-    data = "Created by Openflow Router"
-    hostMac = ""
-    routerMac = ""
-    routerIp = ""
-    outPort = ""
-    start_ping(dpid, hostIp, data, hostMac, routerMac, routerIp, outPort)
+    time.sleep(10)
+    port = "2"
+    macaddress = "00:00:00:00:00:02"
+    ipaddress = "192.168.1.10"
+    opposite_ipaddress = "192.168.1.1"
+    start_create_interface(dpid, port, macaddress, ipaddress, opposite_ipaddress)
+
+
 
 if __name__ == "__main__":
     main()

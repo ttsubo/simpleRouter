@@ -63,7 +63,7 @@ def start_get_flowstats(dpid):
         ipv4Dst[a] = flowstats_list['stats'][a]['ipv4Dst']
         packets[a] = flowstats_list['stats'][a]['packets']
         bytes[a] = flowstats_list['stats'][a]['bytes']
-        print "%8x %18s %18s %15s %8d %8d" % (inPort[a], ethSrc[a], ethDst[a],
+        print "%8s %18s %18s %15s %8d %8d" % (inPort[a], ethSrc[a], ethDst[a],
                                               ipv4Dst[a], packets[a], bytes[a])
         
 

@@ -1,38 +1,30 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
-from httplib import HTTPConnection
 import json
+import sys
 import time
+from oslo.config import cfg
+from common_func import request_info
 
-HOST = "127.0.0.1"
-PORT = "8080"
+port2_opts = []
+port3_opts = []
 
-##################
-# request_info
-##################
+port2_opts.append(cfg.StrOpt('port', default=[], help='OpenFlow Port'))
+port2_opts.append(cfg.StrOpt('macaddress', default=[], help='MacAddress'))
+port2_opts.append(cfg.StrOpt('ipaddress', default=[], help='IpAddress'))
+port2_opts.append(cfg.StrOpt('opposite_ipaddress', default=[],
+                   help='opposite_IpAddress'))
+port3_opts.append(cfg.StrOpt('port', default=[], help='OpenFlow Port'))
+port3_opts.append(cfg.StrOpt('macaddress', default=[], help='MacAddress'))
+port3_opts.append(cfg.StrOpt('ipaddress', default=[], help='IpAddress'))
+port3_opts.append(cfg.StrOpt('opposite_ipaddress', default=[],
+                   help='opposite_IpAddress'))
 
-def request_info(operation, url_path, method, request):
-    print "=" *70
-    print "%s" % operation
-    print "=" *70
-    session = HTTPConnection("%s:%s" % (HOST, PORT))
 
-    header = {
-        "Content-Type": "application/json"
-        }
-    if method == "GET":
-        print url_path
-        session.request("GET", url_path, "", header)
-    elif method == "POST":
-        request = request
-        print url_path
-        print request
-        session.request("POST", url_path, request, header)
-
-    session.set_debuglevel(4)
-    print "----------"
-    return json.load(session.getresponse())
+CONF = cfg.CONF
+CONF.register_cli_opts(port2_opts, 'Port2')
+CONF.register_cli_opts(port3_opts, 'Port3')
 
 
 ##################
@@ -65,20 +57,30 @@ def start_create_interface(dpid, port, macaddress, ipaddress, opposite_ipaddress
 
 def main():
     dpid = "0000000000000001"
-    port = "1"
-    macaddress = "00:00:00:00:00:01"
-    ipaddress = "192.168.0.10"
-    opposite_ipaddress = "192.168.0.1"
-    start_create_interface(dpid, port, macaddress, ipaddress, opposite_ipaddress)
+    try:
+        CONF(default_config_files=['OpenFlow.ini'])
+        port2 = CONF.Port2.port
+        macaddress2 = CONF.Port2.macaddress
+        ipaddress2 = CONF.Port2.ipaddress
+        opposite_ipaddress2 = CONF.Port2.opposite_ipaddress
+    except cfg.ConfigFilesNotFoundError:
+        print "Error: Not Found <OpenFlow.ini> "
 
-    time.sleep(10)
-    port = "2"
-    macaddress = "00:00:00:00:00:02"
-    ipaddress = "192.168.1.10"
-    opposite_ipaddress = "192.168.1.1"
-    start_create_interface(dpid, port, macaddress, ipaddress, opposite_ipaddress)
+    start_create_interface(dpid, port2, macaddress2, ipaddress2,
+                           opposite_ipaddress2)
 
+    time.sleep(5)
+    try:
+        CONF(default_config_files=['OpenFlow.ini'])
+        port3 = CONF.Port3.port
+        macaddress3 = CONF.Port3.macaddress
+        ipaddress3 = CONF.Port3.ipaddress
+        opposite_ipaddress3 = CONF.Port3.opposite_ipaddress
+    except cfg.ConfigFilesNotFoundError:
+        print "Error: Not Found <OpenFlow.ini> "
 
+    start_create_interface(dpid, port3, macaddress3, ipaddress3,
+                           opposite_ipaddress3)
 
 if __name__ == "__main__":
     main()

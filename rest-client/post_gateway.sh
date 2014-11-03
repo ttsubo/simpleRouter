@@ -1,39 +1,18 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
-from httplib import HTTPConnection
 import json
-import time
+from oslo.config import cfg
+from common_func import request_info
 
-HOST = "127.0.0.1"
-PORT = "8080"
+gateway_opts = []
 
-##################
-# request_info
-##################
+gateway_opts.append(cfg.StrOpt('ipaddress', default=[],
+                     help='gateway ipaddress'))
 
-def request_info(operation, url_path, method, request):
-    print "=" *70
-    print "%s" % operation
-    print "=" *70
-    session = HTTPConnection("%s:%s" % (HOST, PORT))
 
-    header = {
-        "Content-Type": "application/json"
-        }
-    if method == "GET":
-        print url_path
-        session.request("GET", url_path, "", header)
-    elif method == "POST":
-        request = request
-        print url_path
-        print request
-        session.request("POST", url_path, request, header)
-
-    session.set_debuglevel(4)
-    print "----------"
-    return json.load(session.getresponse())
-
+CONF = cfg.CONF
+CONF.register_cli_opts(gateway_opts, 'Gateway')
 
 ##################
 # create_gateway
@@ -63,9 +42,13 @@ def start_create_gateway(dpid, ipaddress):
 
 def main():
     dpid = "0000000000000001"
+    try:
+        CONF(default_config_files=['OpenFlow.ini'])
+        gatewayIp = CONF.Gateway.ipaddress
+    except cfg.ConfigFilesNotFoundError:
+        print "Error: Not Found <OpenFlow.ini> "
 
-    ipaddress = "192.168.0.1"
-    start_create_gateway(dpid, ipaddress)
+    start_create_gateway(dpid, gatewayIp)
 
 if __name__ == "__main__":
     main()

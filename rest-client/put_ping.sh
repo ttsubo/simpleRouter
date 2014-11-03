@@ -1,45 +1,9 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
-from httplib import HTTPConnection
 import json
-import time
-
-HOST = "127.0.0.1"
-PORT = "8080"
-
-##################
-# request_info
-##################
-
-def request_info(operation, url_path, method, request):
-    print "=" *70
-    print "%s" % operation
-    print "=" *70
-    session = HTTPConnection("%s:%s" % (HOST, PORT))
-
-    header = {
-        "Content-Type": "application/json"
-        }
-    if method == "GET":
-        print url_path
-        session.request("GET", url_path, "", header)
-    elif method == "POST":
-        request = request
-        print url_path
-        print request
-        session.request("POST", url_path, request, header)
-    elif method == "PUT":
-        request = request
-        print url_path
-        print request
-        session.request("PUT", url_path, request, header)
-
-
-    session.set_debuglevel(4)
-    print "----------"
-    return json.load(session.getresponse())
-
+import sys
+from common_func import request_info
 
 ##################
 # ping
@@ -70,14 +34,16 @@ def start_ping(dpid, hostIp, data, outPort):
 # main
 ##############
 
-def main():
+def main(argv):
     dpid = "0000000000000001"
-
-#    hostIp = "192.168.0.1"
-    hostIp = "172.16.100.101"
-    data = "Created by Openflow Router"
-    outPort = "1"
+    hostIp = argv[1]
+    outPort = argv[2]
+    data = argv[3]
     start_ping(dpid, hostIp, data, outPort)
 
 if __name__ == "__main__":
-    main()
+    if (len(sys.argv) != 4):
+        print "Usage: put_ping.sh [hostIp] [outPort] [data]"
+        sys.exit()
+    else:
+        main(sys.argv)

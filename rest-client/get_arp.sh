@@ -1,46 +1,18 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
-from httplib import HTTPConnection
-import json
-import time
-
-HOST = "127.0.0.1"
-PORT = "8080"
-
-##################
-# request_info
-##################
-
-def request_info(url_path, method, request):
-    session = HTTPConnection("%s:%s" % (HOST, PORT))
-
-    header = {
-        "Content-Type": "application/json"
-        }
-    if method == "GET":
-        print url_path
-        session.request("GET", url_path, "", header)
-    elif method == "POST":
-        request = request
-        print url_path
-        print request
-        session.request("POST", url_path, request, header)
-
-    session.set_debuglevel(4)
-    print "-----------------------------------------------------------"
-    return json.load(session.getresponse())
-
+from common_func import request_info
 
 ###############
 # get_arp
 ###############
 
 def start_get_arp(dpid):
+    operation = "get_arp"
     url_path = "/openflow/" + dpid + "/arp" 
     method = "GET"
 
-    arp_list = request_info(url_path, method, "")
+    arp_list = request_info(operation, url_path, method, "")
 
     hostIpAddr = {}
     hostMacAddr = {}

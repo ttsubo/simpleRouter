@@ -22,13 +22,13 @@ def start_get_interface(dpid):
     print "%s : PortTable" % nowtime
     print "+++++++++++++++++++++++++++++++"
 
-    print "portNo   IpAddress    MacAddress"
-    print "-------- ------------ -----------------"
+    print "portNo   IpAddress       MacAddress"
+    print "-------- --------------- -----------------"
     for a in range(len(interface_list['interface'])):
         routerIpAddr[a] = interface_list['interface'][a]['routerIpAddr']
         routerMacAddr[a] = interface_list['interface'][a]['routerMacAddr']
         routerPort[a] = interface_list['interface'][a]['routerPort']
-        print "%8x %s %s" % (routerPort[a], routerIpAddr[a], routerMacAddr[a])
+        print "%8x %-15s %s" % (routerPort[a], routerIpAddr[a], routerMacAddr[a])
         
 
 ##############

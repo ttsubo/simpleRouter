@@ -45,7 +45,7 @@ class OpenflowRouter(SimpleRouter):
                           hostIp, outPort)
             LOG.debug("send ARP request %s => %s (port%d)"
                      %(routerMac, "ff:ff:ff:ff:ff:ff", outPort))
-            self.add_flow_inf(datapath, ether.ETH_TYPE_IP, routerIp)
+            self.add_flow_my_port(datapath, ether.ETH_TYPE_IP, routerIp)
             LOG.debug("Send Flow_mod packet for interface(%s)"% routerIp)
         else:
             LOG.debug("Unknown Interface!!")
@@ -101,11 +101,31 @@ class OpenflowRouter(SimpleRouter):
 
         if mod_dstMac != None and mod_srcMac !=None:
             self.add_flow_gateway(datapath, ether.ETH_TYPE_IP, mod_srcMac,
-                                  mod_dstMac, outPort)
+                                  mod_dstMac, outPort, defaultIpAddr)
             LOG.debug("Send Flow_mod packet for gateway(%s)"% defaultIpAddr)
         else:
             LOG.debug("Unknown defaultIpAddress!!")
 
+
+    def register_route(self, dpid, destIpAddr, netMask, nextHopIpAddr):
+        datapath = self.monitor.datapaths[dpid]
+
+        for arp in self.arpInfo.values():
+            (hostIpAddr, hostMacAddr, routerPort) = arp.get_all()
+            if nextHopIpAddr == hostIpAddr:
+                mod_dstMac = hostMacAddr
+                outPort = routerPort
+
+        for port in self.portInfo.values():
+            (routerIpAddr, routerMacAddr, routerPort) = port.get_all()
+            if routerPort == outPort:
+                mod_srcMac = routerMacAddr
+
+        if mod_dstMac != None and mod_srcMac !=None:
+            self.add_flow_route(datapath, ether.ETH_TYPE_IP, destIpAddr, netMask, mod_srcMac, mod_dstMac, outPort, nextHopIpAddr)
+            LOG.debug("Send Flow_mod packet for route(%s, %s)"%(destIpAddr, nextHopIpAddr))
+        else:
+            LOG.debug("Unknown nextHopIpAddress!!")
 
 
 class RouterController(ControllerBase):
@@ -127,6 +147,16 @@ class RouterController(ControllerBase):
     def get_arp(self, req, dpid, **kwargs):
 
         result = self.getArp(int(dpid, 16))
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+
+    @route('router', '/openflow/{dpid}/route', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
+    def get_route(self, req, dpid, **kwargs):
+
+        result = self.getRoute(int(dpid, 16))
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -187,6 +217,17 @@ class RouterController(ControllerBase):
                         content_type = 'application/json',
                         body = message)
 
+    @route('router', '/openflow/{dpid}/route', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
+    def set_route(self, req, dpid, **kwargs):
+
+        route_param = eval(req.body)
+        result = self.setRoute(int(dpid, 16), route_param)
+
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
 
     def setInterface(self, dpid, interface_param):
         simpleRouter = self.router_spp
@@ -218,6 +259,23 @@ class RouterController(ControllerBase):
             'id': '%016d' % dpid,
             'gateway': {
                 'ipaddress': '%s' % defaultIp,
+            }
+        }
+
+    def setRoute(self, dpid, route_param):
+        simpleRouter = self.router_spp
+        destinationIp = route_param['route']['destination']
+        netMask = route_param['route']['netmask']
+        nexthopIp = route_param['route']['nexthop']
+
+        simpleRouter.register_route(dpid, destinationIp, netMask, nexthopIp)
+
+        return {
+            'id': '%016d' % dpid,
+            'route': {
+                'destination': '%s' % destinationIp,
+                'netmask': '%s' % netMask,
+                'nexthop': '%s' % nexthopIp,
             }
         }
 
@@ -255,12 +313,12 @@ class RouterController(ControllerBase):
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("%s : PortTable" % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
         LOG.info("+++++++++++++++++++++++++++++++")
-        LOG.info("portNo   IpAddress    MacAddress")
-        LOG.info("-------- ------------ -----------------")
+        LOG.info("portNo   IpAddress       MacAddress")
+        LOG.info("-------- --------------- -----------------")
 
         for port in simpleRouter.portInfo.values():
             (routerIpAddr, routerMacAddr, routerPort) = port.get_all()
-            LOG.info("%8x %s %s" % (routerPort, routerIpAddr, routerMacAddr))
+            LOG.info("%8x %-15s %s" % (routerPort, routerIpAddr, routerMacAddr))
 
         return {
           'id': '%016d' % dpid,
@@ -290,6 +348,29 @@ class RouterController(ControllerBase):
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
           'arp': [
             arp.__dict__ for arp in simpleRouter.arpInfo.values()
+          ]
+        }
+
+
+    def getRoute(self, dpid):
+        simpleRouter = self.router_spp
+
+        nowtime = datetime.datetime.now()
+        LOG.info("+++++++++++++++++++++++++++++++")
+        LOG.info("%s : RoutingTable " % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
+        LOG.info("+++++++++++++++++++++++++++++++")
+        LOG.info("destination     netmask         nexthop")
+        LOG.info("--------------- --------------- ---------------")
+
+        for route in simpleRouter.routingInfo.values():
+            (destIpAddr, netMask, nextHopIpAddr) = route.get_all()
+            LOG.info("%-15s %-15s %-15s" % (destIpAddr, netMask, nextHopIpAddr))
+
+        return {
+          'id': '%016d' % dpid,
+          'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
+          'route': [
+            route.__dict__ for route in simpleRouter.routingInfo.values()
           ]
         }
 

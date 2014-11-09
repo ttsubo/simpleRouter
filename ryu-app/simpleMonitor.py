@@ -84,6 +84,15 @@ class SimpleMonitor(app_manager.RyuApp):
                                                    stat.packet_count,
                                                    stat.byte_count)
 
+        for stat in [flow for flow in body if flow.priority == 15]: 
+            self.flowStats[stat.match["ipv4_dst"][0]] = FlowStats(
+                                                   "*",
+                                                   "*",
+                                                   "*",
+                                                   stat.match["ipv4_dst"][0],
+                                                   stat.packet_count,
+                                                   stat.byte_count)
+
         for stat in [flow for flow in body if flow.priority == 1]: 
             self.flowStats["*"] = FlowStats(
                                                    "*",

@@ -53,11 +53,13 @@ class ArpTable(object):
 
 
 class RoutingTable(object):
-    def __init__(self, dpid, destNwAddr, netMask, hostIpAddr):
-        self.dpid = dpid
-        self.destNwAddr = destNwAddr
+    def __init__(self, destIpAddr, netMask, nextHopIpAddr):
+        self.destIpAddr = destIpAddr
         self.netMask = netMask
-        self.hostIpAddr = hostIpAddr
+        self.nextHopIpAddr = nextHopIpAddr
+
+    def get_all(self):
+        return self.destIpAddr, self.netMask, self.nextHopIpAddr
 
 
 class SimpleRouter(app_manager.RyuApp):
@@ -68,6 +70,7 @@ class SimpleRouter(app_manager.RyuApp):
         self.ping_q = hub.Queue()
         self.portInfo = {}
         self.arpInfo = {}
+        self.routingInfo = {}
 
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -348,26 +351,28 @@ class SimpleRouter(app_manager.RyuApp):
                 (routerIpAddr2, routerMacAddr2, routerPort2) = port.get_all()
 
         LOG.debug("Send Flow_mod packet for %s"% hostIpAddr2)
-        self.add_flow(datapath, routerPort1, hostMacAddr1, routerMacAddr1,
+        self.add_flow_port(datapath, routerPort1, hostMacAddr1, routerMacAddr1,
                       ether.ETH_TYPE_IP, hostIpAddr2, routerMacAddr2,
                       hostMacAddr2, routerPort2)
 
         LOG.debug("Send Flow_mod packet for %s"% hostIpAddr1)
-        self.add_flow(datapath, routerPort2, hostMacAddr2, routerMacAddr2,
+        self.add_flow_port(datapath, routerPort2, hostMacAddr2, routerMacAddr2,
                       ether.ETH_TYPE_IP, hostIpAddr1, routerMacAddr1,
                       hostMacAddr1, routerPort1)
         return 0
 
 
-    def add_flow(self, datapath, inPort, org_srcMac, org_dstMac, ethertype,
-                 targetIp, mod_srcMac, mod_dstMac, outPort):
+    def add_flow_port(self, datapath, inPort, org_srcMac, org_dstMac, ethertype,
+                 hostIp, mod_srcMac, mod_dstMac, outPort):
+
+        self.routingInfo[hostIp] = RoutingTable(hostIp, "255.255.255.255", "0.0.0.0")
 
         match = datapath.ofproto_parser.OFPMatch(
                 in_port=inPort,
                 eth_src=org_srcMac,
                 eth_dst=org_dstMac,
                 eth_type=ethertype,
-                ipv4_dst=targetIp )
+                ipv4_dst=hostIp )
         actions =[datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
                 datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
                 datapath.ofproto_parser.OFPActionOutput(outPort, 0),
@@ -392,8 +397,9 @@ class SimpleRouter(app_manager.RyuApp):
         return 0
 
 
-    def add_flow_gateway(self, datapath, ethertype, mod_srcMac, mod_dstMac, outPort):
+    def add_flow_gateway(self, datapath, ethertype, mod_srcMac, mod_dstMac, outPort, defaultGateway):
 
+        self.routingInfo["0.0.0.0"] = RoutingTable("0.0.0.0", "0.0.0.0", defaultGateway)
         match = datapath.ofproto_parser.OFPMatch(eth_type=ethertype)
         actions =[datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
                 datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
@@ -419,11 +425,42 @@ class SimpleRouter(app_manager.RyuApp):
         return 0
 
 
-    def add_flow_inf(self, datapath, ethertype, targetIp):
+    def add_flow_route(self, datapath, ethertype, mod_dstIp, mod_dstMask, mod_srcMac, mod_dstMac, outPort, nexthop):
+
+        self.routingInfo[mod_dstIp] = RoutingTable(mod_dstIp, mod_dstMask, nexthop)
 
         match = datapath.ofproto_parser.OFPMatch(
                 eth_type=ethertype,
-                ipv4_dst=targetIp )
+                ipv4_dst=(mod_dstIp, mod_dstMask))
+        actions =[datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
+                datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
+                datapath.ofproto_parser.OFPActionOutput(outPort, 0),
+                datapath.ofproto_parser.OFPActionDecNwTtl()]
+        inst = [datapath.ofproto_parser.OFPInstructionActions(
+                datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
+        mod = datapath.ofproto_parser.OFPFlowMod(
+                cookie=0,
+                cookie_mask=0,
+                table_id=0,
+                command=datapath.ofproto.OFPFC_ADD,
+                datapath=datapath,
+                idle_timeout=0,
+                hard_timeout=0,
+                priority=0xf,
+                buffer_id=0xffffffff,
+                out_port=datapath.ofproto.OFPP_ANY,
+                out_group=datapath.ofproto.OFPG_ANY,
+                match=match,
+                instructions=inst)
+        datapath.send_msg(mod)
+        return 0
+
+
+    def add_flow_my_port(self, datapath, ethertype, routerIp):
+
+        match = datapath.ofproto_parser.OFPMatch(
+                eth_type=ethertype,
+                ipv4_dst=routerIp )
         actions = [datapath.ofproto_parser.OFPActionOutput(
                 datapath.ofproto.OFPP_CONTROLLER,
                 datapath.ofproto.OFPCML_NO_BUFFER)]

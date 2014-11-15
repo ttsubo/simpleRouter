@@ -10,7 +10,7 @@ from webob import Response
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 
 LOG = logging.getLogger('OpenflowRouter')
-#LOG.setLevel(logging.DEBUG)
+LOG.setLevel(logging.INFO)
 
 class OpenflowRouter(SimpleRouter):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -37,16 +37,27 @@ class OpenflowRouter(SimpleRouter):
         super(OpenflowRouter, self).packet_in_handler(ev)
 
 
-    def register_inf(self, dpid, routerIp, routerMac, hostIp, outPort):
-        LOG.debug("Register Interface(port%s)"% outPort)
+    def register_inf(self, dpid, routerIp, routerMac, hostIp, Port, bgpPort):
+        LOG.debug("Register Interface(port%s)"% Port)
         datapath = self.monitor.datapaths[dpid]
+        outPort = int(Port)
         if outPort == ROUTER_PORT1 or outPort == ROUTER_PORT2:
             self.send_arp(datapath, 1, routerMac, routerIp, "ff:ff:ff:ff:ff:ff",
                           hostIp, outPort)
             LOG.debug("send ARP request %s => %s (port%d)"
                      %(routerMac, "ff:ff:ff:ff:ff:ff", outPort))
             self.add_flow_my_port(datapath, ether.ETH_TYPE_IP, routerIp)
-            LOG.debug("Send Flow_mod packet for interface(%s)"% routerIp)
+            if bgpPort=="":
+                pass
+            else:
+                offloadPort = int(bgpPort)
+                LOG.debug("Send Flow_mod packet for interface(%s)"% routerIp)
+                self.add_flow_for_bgp(datapath, outPort, ether.ETH_TYPE_IP,
+                                      routerIp, offloadPort)
+                LOG.debug("Send Flow_mod packet for bgp offload(%s)"% routerIp)
+                self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_IP,
+                                      hostIp, outPort)
+                LOG.debug("Send Flow_mod packet for bgp offload(%s)"% hostIp)
         else:
             LOG.debug("Unknown Interface!!")
 
@@ -233,10 +244,11 @@ class RouterController(ControllerBase):
         simpleRouter = self.router_spp
         routerMac = interface_param['interface']['macaddress']
         routerIp = interface_param['interface']['ipaddress']
-        port = int(interface_param['interface']['port'])
+        port = interface_param['interface']['port']
         hostIp = interface_param['interface']['opposite_ipaddress']
+        port_offload_bgp = interface_param['interface']['port_offload_bgp']
 
-        simpleRouter.register_inf(dpid, routerIp, routerMac, hostIp, port)
+        simpleRouter.register_inf(dpid, routerIp, routerMac, hostIp, port, port_offload_bgp)
 
         return {
             'id': '%016d' % dpid,
@@ -244,7 +256,8 @@ class RouterController(ControllerBase):
                 'port': '%s' % port,
                 'macaddress': '%s' % routerMac,
                 'ipaddress': '%s' % routerIp,
-                'opposite_ipaddress': '%s' % hostIp
+                'opposite_ipaddress': '%s' % hostIp,
+                'port_offload_bgp': '%s' % port_offload_bgp
             }
         }
 

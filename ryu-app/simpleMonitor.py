@@ -75,7 +75,7 @@ class SimpleMonitor(app_manager.RyuApp):
     def _flow_stats_reply_handler(self, ev):
         body = ev.msg.body
 
-        for stat in [flow for flow in body if flow.priority == 255]: 
+        for stat in [flow for flow in body if flow.priority == 2]: 
             self.flowStats[stat.match["in_port"]] = FlowStats(
                                                    stat.match["in_port"],
                                                    stat.match["eth_src"],

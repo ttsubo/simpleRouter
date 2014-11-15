@@ -1,4 +1,5 @@
 import logging
+import socket
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -20,11 +21,12 @@ from ryu.ofproto import inet
 from ryu.lib import hub
 
 LOG = logging.getLogger('SimpleRouter')
-#LOG.setLevel(logging.DEBUG)
+LOG.setLevel(logging.INFO)
 logging.basicConfig()
 
 ROUTER_PORT1 = 1
 ROUTER_PORT2 = 2
+OPENFLOW_PORT_BGP = 3
 
 class PortTable(object):
     def __init__(self, routerPort, routerIpAddr, routerMacAddr):
@@ -387,7 +389,7 @@ class SimpleRouter(app_manager.RyuApp):
                 datapath=datapath,
                 idle_timeout=0,
                 hard_timeout=0,
-                priority=0xff,
+                priority=0x2,
                 buffer_id=0xffffffff,
                 out_port=datapath.ofproto.OFPP_ANY,
                 out_group=datapath.ofproto.OFPG_ANY,
@@ -475,6 +477,34 @@ class SimpleRouter(app_manager.RyuApp):
                 idle_timeout=0,
                 hard_timeout=0,
                 priority=0x10,
+                buffer_id=0xffffffff,
+                out_port=datapath.ofproto.OFPP_ANY,
+                out_group=datapath.ofproto.OFPG_ANY,
+                match=match,
+                instructions=inst)
+        datapath.send_msg(mod)
+        return 0
+
+
+    def add_flow_for_bgp(self, datapath, inPort, ethertype, destIp, outPort):
+
+        match = datapath.ofproto_parser.OFPMatch(
+                in_port=inPort,
+                eth_type=ethertype,
+                ipv4_dst=destIp)
+        actions = [datapath.ofproto_parser.OFPActionOutput(outPort, 0)]
+        inst = [datapath.ofproto_parser.OFPInstructionActions(
+                datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
+
+        mod = datapath.ofproto_parser.OFPFlowMod(
+                cookie=0,
+                cookie_mask=0,
+                table_id=0,
+                command=datapath.ofproto.OFPFC_ADD,
+                datapath=datapath,
+                idle_timeout=0,
+                hard_timeout=0,
+                priority=0xff,
                 buffer_id=0xffffffff,
                 out_port=datapath.ofproto.OFPP_ANY,
                 out_group=datapath.ofproto.OFPG_ANY,

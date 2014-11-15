@@ -11,7 +11,7 @@ from webob import Response
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 
 LOG = logging.getLogger('OpenflowRouter')
-LOG.setLevel(logging.DEBUG)
+LOG.setLevel(logging.INFO)
 
 class OpenflowRouter(SimpleRouter):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -29,6 +29,19 @@ class OpenflowRouter(SimpleRouter):
         self.ports = {}
         wsgi = kwargs['wsgi']
         wsgi.register(RouterController, {'OpenFlowRouter' : self})
+        self.bgp_thread = hub.spawn(self._monitorRemotePrefix)
+
+    def _monitorRemotePrefix(self):
+        while True:
+            dpid = 1
+            if not self.bgps.bgp_q.empty():
+                task = self.bgps.bgp_q.get()
+                LOG.info("task=%s"%task)
+                destIpAddr = task['prefix']
+                netMask = task['netmask']
+                nextHopIpAddr = task['nexthop']
+                self.register_route(dpid, destIpAddr, netMask, nextHopIpAddr)
+            hub.sleep(1)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):

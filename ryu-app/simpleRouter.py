@@ -491,11 +491,15 @@ class SimpleRouter(app_manager.RyuApp):
                 in_port=inPort,
                 eth_type=ethertype,
                 ipv4_dst=destIp)
+            actions = [datapath.ofproto_parser.OFPActionOutput(outPort, 0)]
         else:
             match = datapath.ofproto_parser.OFPMatch(
                 in_port=inPort,
                 eth_type=ethertype)
-        actions = [datapath.ofproto_parser.OFPActionOutput(outPort, 0)]
+            actions = [datapath.ofproto_parser.OFPActionOutput(outPort, 0),
+                       datapath.ofproto_parser.OFPActionOutput(
+                                             datapath.ofproto.OFPP_CONTROLLER,
+                                             datapath.ofproto.OFPCML_NO_BUFFER)]
         inst = [datapath.ofproto_parser.OFPInstructionActions(
                 datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
 

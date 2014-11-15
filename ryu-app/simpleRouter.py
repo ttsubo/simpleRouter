@@ -26,7 +26,6 @@ logging.basicConfig()
 
 ROUTER_PORT1 = 1
 ROUTER_PORT2 = 2
-OPENFLOW_PORT_BGP = 3
 
 class PortTable(object):
     def __init__(self, routerPort, routerIpAddr, routerMacAddr):
@@ -487,11 +486,15 @@ class SimpleRouter(app_manager.RyuApp):
 
 
     def add_flow_for_bgp(self, datapath, inPort, ethertype, destIp, outPort):
-
-        match = datapath.ofproto_parser.OFPMatch(
+        if destIp:
+            match = datapath.ofproto_parser.OFPMatch(
                 in_port=inPort,
                 eth_type=ethertype,
                 ipv4_dst=destIp)
+        else:
+            match = datapath.ofproto_parser.OFPMatch(
+                in_port=inPort,
+                eth_type=ethertype)
         actions = [datapath.ofproto_parser.OFPActionOutput(outPort, 0)]
         inst = [datapath.ofproto_parser.OFPInstructionActions(
                 datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]

@@ -5,24 +5,27 @@ import time
 
 from simpleRouter import *
 from simpleMonitor import SimpleMonitor
+from simpleBGPSpeaker import SimpleBGPSpeaker
 from ryu.lib import dpid
 from webob import Response
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 
 LOG = logging.getLogger('OpenflowRouter')
-LOG.setLevel(logging.INFO)
+LOG.setLevel(logging.DEBUG)
 
 class OpenflowRouter(SimpleRouter):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
     _CONTEXTS = {
         'monitor' : SimpleMonitor,
+        'bgps' : SimpleBGPSpeaker,
         'wsgi': WSGIApplication
     }
 
     def __init__(self, *args, **kwargs):
         super(OpenflowRouter, self).__init__(*args, **kwargs)
         self.monitor = kwargs['monitor']
+        self.bgps = kwargs['bgps']
         self.ports = {}
         wsgi = kwargs['wsgi']
         wsgi.register(RouterController, {'OpenFlowRouter' : self})
@@ -51,6 +54,11 @@ class OpenflowRouter(SimpleRouter):
                 pass
             else:
                 offloadPort = int(bgpPort)
+                LOG.debug("Send Flow_mod packet for bgp offload(arp)")
+                self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_ARP,
+                                      "", outPort)
+                self.add_flow_for_bgp(datapath, outPort, ether.ETH_TYPE_ARP,
+                                      "", offloadPort)
                 LOG.debug("Send Flow_mod packet for interface(%s)"% routerIp)
                 self.add_flow_for_bgp(datapath, outPort, ether.ETH_TYPE_IP,
                                       routerIp, offloadPort)

@@ -22,7 +22,6 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         super(SimpleBGPSpeaker, self).__init__(*args, **kwargs)
         self.bgp_q = hub.Queue()
         self.name = 'bgps'
-        self.bgps_thread = hub.spawn(self._bgps)
 
 
     def dump_remote_best_path_change(self, event):
@@ -38,20 +37,19 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         self.bgp_q.put(remote_prefix)
 
 
-    def _bgps(self):
-        hub.sleep(30)
-        speaker = BGPSpeaker(as_number=65002, router_id='10.0.0.2',
-                     best_path_change_handler=self.dump_remote_best_path_change)
+    def add_neighbor(self, peerIp, asNumber):
+        self.speaker = BGPSpeaker(as_number=65002, router_id='10.0.0.2',
+                     best_path_change_handler=self.dump_remote_best_path_change,
+                     ssh_console=True)
+        self.speaker.neighbor_add(peerIp, asNumber)
 
-        speaker.neighbor_add('192.168.200.1', 65001)
 
-        count = 1
-        while True:
-            hub.sleep(10)
-            prefix = '10.20.' + str(count) + '.0/24'
-            print("add a new prefix", prefix)
-            speaker.prefix_add(prefix)
-            count += 1
-            if count == 4:
-                hub.sleep(60)
-
+    def add_prefix(self, ipaddress, netmask, nexthop=""):
+        prefix = IPNetwork(ipaddress + '/' + netmask)
+        local_prefix = str(prefix.cidr)
+        if nexthop:
+            print"add new prefix[prefix=%s, nexthop=%s]"%(local_prefix, nexthop)
+            self.speaker.prefix_add(local_prefix, nexthop)
+        else:
+            print"add new prefix[prefix=%s]"%(local_prefix)
+            self.speaker.prefix_add(local_prefix)

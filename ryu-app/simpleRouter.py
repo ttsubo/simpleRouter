@@ -350,7 +350,6 @@ class SimpleRouter(app_manager.RyuApp):
                 (routerIpAddr1, routerMacAddr1, routerPort1) = port.get_all()
             elif portNo == ROUTER_PORT2:
                 (routerIpAddr2, routerMacAddr2, routerPort2) = port.get_all()
-
         LOG.debug("Send Flow_mod packet for %s"% hostIpAddr2)
         self.add_flow_port(datapath, routerPort1, hostMacAddr1, routerMacAddr1,
                       ether.ETH_TYPE_IP, hostIpAddr2, routerMacAddr2,

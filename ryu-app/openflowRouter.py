@@ -29,17 +29,24 @@ class OpenflowRouter(SimpleRouter):
         self.ports = {}
         wsgi = kwargs['wsgi']
         wsgi.register(RouterController, {'OpenFlowRouter' : self})
-        self.bgp_thread = hub.spawn(self._monitorRemotePrefix)
+        self.bgp_thread = hub.spawn(self.register_remotePrefix)
 
-    def _monitorRemotePrefix(self):
+
+    def register_localPrefix(self, dpid, destIpAddr, netMask, nextHopIpAddr):
+        self.register_route(dpid, destIpAddr, netMask, nextHopIpAddr)
+        LOG.info("Send BGP UPDATE packet for route(%s, %s, %s)"%(destIpAddr, netMask, nextHopIpAddr))
+        self.bgps.add_prefix(destIpAddr, netMask, nextHopIpAddr)
+
+
+    def register_remotePrefix(self):
         while True:
             dpid = 1
             if not self.bgps.bgp_q.empty():
-                task = self.bgps.bgp_q.get()
-                LOG.info("task=%s"%task)
-                destIpAddr = task['prefix']
-                netMask = task['netmask']
-                nextHopIpAddr = task['nexthop']
+                remotePrefix = self.bgps.bgp_q.get()
+                LOG.debug("remotePrefix=%s"%remotePrefix)
+                destIpAddr = remotePrefix['prefix']
+                netMask = remotePrefix['netmask']
+                nextHopIpAddr = remotePrefix['nexthop']
                 self.register_route(dpid, destIpAddr, netMask, nextHopIpAddr)
             hub.sleep(1)
 
@@ -53,7 +60,7 @@ class OpenflowRouter(SimpleRouter):
         super(OpenflowRouter, self).packet_in_handler(ev)
 
 
-    def register_inf(self, dpid, routerIp, routerMac, hostIp, Port, bgpPort):
+    def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, Port, bgpPort):
         LOG.debug("Register Interface(port%s)"% Port)
         datapath = self.monitor.datapaths[dpid]
         outPort = int(Port)
@@ -62,6 +69,7 @@ class OpenflowRouter(SimpleRouter):
                           hostIp, outPort)
             LOG.debug("send ARP request %s => %s (port%d)"
                      %(routerMac, "ff:ff:ff:ff:ff:ff", outPort))
+            LOG.debug("Send Flow_mod packet for interface(%s)"% routerIp)
             self.add_flow_my_port(datapath, ether.ETH_TYPE_IP, routerIp)
             if bgpPort=="":
                 pass
@@ -72,15 +80,19 @@ class OpenflowRouter(SimpleRouter):
                                       "", outPort)
                 self.add_flow_for_bgp(datapath, outPort, ether.ETH_TYPE_ARP,
                                       "", offloadPort)
-                LOG.debug("Send Flow_mod packet for interface(%s)"% routerIp)
+                LOG.debug("Send Flow_mod packet for bgp offload(%s)"% routerIp)
                 self.add_flow_for_bgp(datapath, outPort, ether.ETH_TYPE_IP,
                                       routerIp, offloadPort)
-                LOG.debug("Send Flow_mod packet for bgp offload(%s)"% routerIp)
+                LOG.debug("Send Flow_mod packet for bgp offload(%s)"% hostIp)
                 self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_IP,
                                       hostIp, outPort)
-                LOG.debug("Send Flow_mod packet for bgp offload(%s)"% hostIp)
+                LOG.debug("start BGP peering with [%s]"% hostIp)
+                self.bgps.add_neighbor(hostIp, 65001)
         else:
             LOG.debug("Unknown Interface!!")
+
+        LOG.info("Send BGP UPDATE packet for route(%s, %s)"%(routerIp, netMask))
+        self.bgps.add_prefix(routerIp, netMask)
 
 
     def send_ping(self, dpid, targetIp, seq, data, sendPort):
@@ -154,8 +166,8 @@ class OpenflowRouter(SimpleRouter):
                 mod_srcMac = routerMacAddr
 
         if mod_dstMac != None and mod_srcMac !=None:
+            LOG.debug("Send Flow_mod packet for route(%s, %s, %s)"%(destIpAddr, netMask, nextHopIpAddr))
             self.add_flow_route(datapath, ether.ETH_TYPE_IP, destIpAddr, netMask, mod_srcMac, mod_dstMac, outPort, nextHopIpAddr)
-            LOG.debug("Send Flow_mod packet for route(%s, %s)"%(destIpAddr, nextHopIpAddr))
         else:
             LOG.debug("Unknown nextHopIpAddress!!")
 
@@ -265,11 +277,12 @@ class RouterController(ControllerBase):
         simpleRouter = self.router_spp
         routerMac = interface_param['interface']['macaddress']
         routerIp = interface_param['interface']['ipaddress']
+        netMask = interface_param['interface']['netmask']
         port = interface_param['interface']['port']
         hostIp = interface_param['interface']['opposite_ipaddress']
         port_offload_bgp = interface_param['interface']['port_offload_bgp']
 
-        simpleRouter.register_inf(dpid, routerIp, routerMac, hostIp, port, port_offload_bgp)
+        simpleRouter.register_inf(dpid, routerIp, netMask, routerMac, hostIp, port, port_offload_bgp)
 
         return {
             'id': '%016d' % dpid,
@@ -277,6 +290,7 @@ class RouterController(ControllerBase):
                 'port': '%s' % port,
                 'macaddress': '%s' % routerMac,
                 'ipaddress': '%s' % routerIp,
+                'netmask': '%s' % netMask,
                 'opposite_ipaddress': '%s' % hostIp,
                 'port_offload_bgp': '%s' % port_offload_bgp
             }
@@ -302,7 +316,7 @@ class RouterController(ControllerBase):
         netMask = route_param['route']['netmask']
         nexthopIp = route_param['route']['nexthop']
 
-        simpleRouter.register_route(dpid, destinationIp, netMask, nexthopIp)
+        simpleRouter.register_localPrefix(dpid, destinationIp, netMask, nexthopIp)
 
         return {
             'id': '%016d' % dpid,

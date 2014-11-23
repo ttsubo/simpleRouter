@@ -34,8 +34,12 @@ class OpenflowRouter(SimpleRouter):
 
     def register_localPrefix(self, dpid, destIpAddr, netMask, nextHopIpAddr):
         self.register_route(dpid, destIpAddr, netMask, nextHopIpAddr)
-        LOG.info("Send BGP UPDATE packet for route(%s, %s, %s)"%(destIpAddr, netMask, nextHopIpAddr))
         self.bgps.add_prefix(destIpAddr, netMask, nextHopIpAddr)
+
+
+    def delete_localPrefix(self, dpid, destIpAddr, netMask):
+        self.remove_route(dpid, destIpAddr, netMask)
+        self.bgps.remove_prefix(destIpAddr, netMask)
 
 
     def register_remotePrefix(self):
@@ -91,7 +95,6 @@ class OpenflowRouter(SimpleRouter):
         else:
             LOG.debug("Unknown Interface!!")
 
-        LOG.info("Send BGP UPDATE packet for route(%s, %s)"%(routerIp, netMask))
         self.bgps.add_prefix(routerIp, netMask)
 
 
@@ -170,6 +173,13 @@ class OpenflowRouter(SimpleRouter):
             self.add_flow_route(datapath, ether.ETH_TYPE_IP, destIpAddr, netMask, mod_srcMac, mod_dstMac, outPort, nextHopIpAddr)
         else:
             LOG.debug("Unknown nextHopIpAddress!!")
+
+
+    def remove_route(self, dpid, destIpAddr, netMask):
+        datapath = self.monitor.datapaths[dpid]
+
+        LOG.debug("Send Flow_mod packet for route(%s, %s)"%(destIpAddr, netMask))
+        self.remove_flow_route(datapath, ether.ETH_TYPE_IP, destIpAddr, netMask)
 
 
 class RouterController(ControllerBase):
@@ -273,6 +283,18 @@ class RouterController(ControllerBase):
                         body = message)
 
 
+    @route('router', '/openflow/{dpid}/route', methods=['DELETE'], requirements={'dpid': dpid.DPID_PATTERN})
+    def delete_route(self, req, dpid, **kwargs):
+
+        route_param = eval(req.body)
+        result = self.delRoute(int(dpid, 16), route_param)
+
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+
     def setInterface(self, dpid, interface_param):
         simpleRouter = self.router_spp
         routerMac = interface_param['interface']['macaddress']
@@ -324,6 +346,22 @@ class RouterController(ControllerBase):
                 'destination': '%s' % destinationIp,
                 'netmask': '%s' % netMask,
                 'nexthop': '%s' % nexthopIp,
+            }
+        }
+
+
+    def delRoute(self, dpid, route_param):
+        simpleRouter = self.router_spp
+        destinationIp = route_param['route']['destination']
+        netMask = route_param['route']['netmask']
+
+        simpleRouter.delete_localPrefix(dpid, destinationIp, netMask)
+
+        return {
+            'id': '%016d' % dpid,
+            'route': {
+                'destination': '%s' % destinationIp,
+                'netmask': '%s' % netMask,
             }
         }
 
@@ -407,12 +445,12 @@ class RouterController(ControllerBase):
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("%s : RoutingTable " % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
         LOG.info("+++++++++++++++++++++++++++++++")
-        LOG.info("destination     netmask         nexthop")
-        LOG.info("--------------- --------------- ---------------")
+        LOG.info("prefix             nexthop")
+        LOG.info("------------------ ---------------")
 
         for route in simpleRouter.routingInfo.values():
-            (destIpAddr, netMask, nextHopIpAddr) = route.get_all()
-            LOG.info("%-15s %-15s %-15s" % (destIpAddr, netMask, nextHopIpAddr))
+            (prefix, nextHopIpAddr) = route.get_route()
+            LOG.info("%-18s %-15s" % (prefix, nextHopIpAddr))
 
         return {
           'id': '%016d' % dpid,

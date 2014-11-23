@@ -48,8 +48,15 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         prefix = IPNetwork(ipaddress + '/' + netmask)
         local_prefix = str(prefix.cidr)
         if nexthop:
-            print"add new prefix[prefix=%s, nexthop=%s]"%(local_prefix, nexthop)
+            LOG.info("Send BGP UPDATE Message for route(%s, %s)"%(local_prefix, nexthop))
             self.speaker.prefix_add(local_prefix, nexthop)
         else:
-            print"add new prefix[prefix=%s]"%(local_prefix)
+            LOG.info("Send BGP UPDATE Message for route(%s)"%(local_prefix))
             self.speaker.prefix_add(local_prefix)
+
+    def remove_prefix(self, ipaddress, netmask):
+        prefix = IPNetwork(ipaddress + '/' + netmask)
+        local_prefix = str(prefix.cidr)
+
+        LOG.info("Send BGP UPDATE(withdraw) Message for route(%s)"%(local_prefix))
+        self.speaker.prefix_del(local_prefix)

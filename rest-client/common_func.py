@@ -33,6 +33,12 @@ def request_info(operator, url_path, method, request):
         print url_path
         print request
         session.request("PUT", url_path, request, header)
+    elif method == "DELETE":
+        request = request
+        print url_path
+        print request
+        session.request("DELETE", url_path, request, header)
+
 
 
     session.set_debuglevel(4)

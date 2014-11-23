@@ -14,21 +14,19 @@ def start_get_route(dpid):
 
     route_list = request_info(operation, url_path, method, "")
 
-    destIpAddr = {}
-    netMask = {}
+    prefix = {}
     nextHopIpAddr = {}
     nowtime = route_list['time']
     print "+++++++++++++++++++++++++++++++"
     print "%s : RoutingTable " % nowtime
     print "+++++++++++++++++++++++++++++++"
 
-    print "destination     netmask         nexthop"
-    print "--------------- --------------- ---------------"
+    print "prefix             nexthop"
+    print "------------------ ----------------"
     for a in range(len(route_list['route'])):
-        destIpAddr[a] = route_list['route'][a]['destIpAddr']
-        netMask[a] = route_list['route'][a]['netMask']
+        prefix[a] = route_list['route'][a]['prefix']
         nextHopIpAddr[a] = route_list['route'][a]['nextHopIpAddr']
-        print "%-15s %-15s %-15s" % (destIpAddr[a], netMask[a], nextHopIpAddr[a])
+        print "%-18s %-15s" % (prefix[a], nextHopIpAddr[a])
         
 
 ##############

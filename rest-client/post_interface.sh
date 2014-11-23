@@ -16,6 +16,8 @@ port1_opts.append(cfg.StrOpt('ipaddress', default=[], help='IpAddress'))
 port1_opts.append(cfg.StrOpt('netmask', default=[], help='netmask'))
 port1_opts.append(cfg.StrOpt('opposite_ipaddress', default=[],
                    help='opposite_IpAddress'))
+port1_opts.append(cfg.StrOpt('opposite_asnumber', default=[],
+                   help='opposite_asnumber'))
 port1_opts.append(cfg.StrOpt('port_offload_bgp', default=[], help='port_offload_bgp'))
 port2_opts.append(cfg.StrOpt('port', default=[], help='OpenFlow Port'))
 port2_opts.append(cfg.StrOpt('macaddress', default=[], help='MacAddress'))
@@ -23,6 +25,8 @@ port2_opts.append(cfg.StrOpt('ipaddress', default=[], help='IpAddress'))
 port2_opts.append(cfg.StrOpt('netmask', default=[], help='netmask'))
 port2_opts.append(cfg.StrOpt('opposite_ipaddress', default=[],
                    help='opposite_IpAddress'))
+port2_opts.append(cfg.StrOpt('opposite_asnumber', default=[],
+                   help='opposite_asnumber'))
 port2_opts.append(cfg.StrOpt('port_offload_bgp', default=[], help='port_offload_bgp'))
 
 
@@ -35,7 +39,7 @@ CONF.register_cli_opts(port2_opts, 'Port2')
 # create_interface
 ##################
 
-def start_create_interface(dpid, port, macaddress, ipaddress, netmask, opposite_ipaddress, port_offload_bgp):
+def start_create_interface(dpid, port, macaddress, ipaddress, netmask, opposite_ipaddress, opposite_asnumber, port_offload_bgp):
     operation = "create_interface"
     url_path = "/openflow/" + dpid + "/interface"
     method = "POST"
@@ -47,9 +51,10 @@ def start_create_interface(dpid, port, macaddress, ipaddress, netmask, opposite_
 "ipaddress": "%s",
 "netmask": "%s",
 "opposite_ipaddress": "%s",
+"opposite_asnumber": "%s",
 "port_offload_bgp": "%s"
 }
-}'''% (port, macaddress, ipaddress, netmask, opposite_ipaddress, port_offload_bgp)
+}'''% (port, macaddress, ipaddress, netmask, opposite_ipaddress, opposite_asnumber, port_offload_bgp)
 
     interface_result = request_info(operation, url_path, method, request)
     print "----------"
@@ -70,12 +75,14 @@ def main():
         ipaddress1 = CONF.Port1.ipaddress
         netmask1 = CONF.Port1.netmask
         opposite_ipaddress1 = CONF.Port1.opposite_ipaddress
+        opposite_asnumber1 = CONF.Port1.opposite_asnumber
         port_offload_bgp1 = CONF.Port1.port_offload_bgp
     except cfg.ConfigFilesNotFoundError:
         print "Error: Not Found <OpenFlow.ini> "
 
     start_create_interface(dpid, port1, macaddress1, ipaddress1, netmask1,
-                           opposite_ipaddress1, port_offload_bgp1)
+                           opposite_ipaddress1, opposite_asnumber1,
+                           port_offload_bgp1)
 
     time.sleep(5)
     try:
@@ -85,12 +92,14 @@ def main():
         ipaddress2 = CONF.Port2.ipaddress
         netmask2 = CONF.Port2.netmask
         opposite_ipaddress2 = CONF.Port2.opposite_ipaddress
+        opposite_asnumber2 = CONF.Port2.opposite_asnumber
         port_offload_bgp2 = CONF.Port2.port_offload_bgp
     except cfg.ConfigFilesNotFoundError:
         print "Error: Not Found <OpenFlow.ini> "
 
     start_create_interface(dpid, port2, macaddress2, ipaddress2, netmask2,
-                           opposite_ipaddress2, port_offload_bgp2)
+                           opposite_ipaddress2, opposite_asnumber2,
+                           port_offload_bgp2)
 
 if __name__ == "__main__":
     main()

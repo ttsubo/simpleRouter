@@ -15,6 +15,8 @@ LOG = logging.getLogger('SimpleBGPSpeaker')
 LOG.setLevel(logging.INFO)
 logging.basicConfig()
 
+AS_NUMBER = 65002
+ROUTER_ID = '10.0.0.2'
 
 class SimpleBGPSpeaker(app_manager.RyuApp):
 
@@ -22,6 +24,7 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         super(SimpleBGPSpeaker, self).__init__(*args, **kwargs)
         self.bgp_q = hub.Queue()
         self.name = 'bgps'
+        self.bgps_thread = hub.spawn(self._bgpspeaker)
 
 
     def dump_remote_best_path_change(self, event):
@@ -33,14 +36,15 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         remote_prefix['netmask'] = str(prefixInfo.netmask)
         remote_prefix['nexthop'] = event.nexthop
         remote_prefix['withdraw'] = event.is_withdraw
-        LOG.info("remote_prefix=%s"%remote_prefix)
+        LOG.debug("remote_prefix=%s"%remote_prefix)
         self.bgp_q.put(remote_prefix)
 
-
-    def add_neighbor(self, peerIp, asNumber):
-        self.speaker = BGPSpeaker(as_number=65002, router_id='10.0.0.2',
+    def _bgpspeaker(self):
+        self.speaker = BGPSpeaker(as_number=AS_NUMBER, router_id=ROUTER_ID,
                      best_path_change_handler=self.dump_remote_best_path_change,
                      ssh_console=True)
+
+    def add_neighbor(self, peerIp, asNumber):
         self.speaker.neighbor_add(peerIp, asNumber)
 
 

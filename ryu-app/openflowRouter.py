@@ -29,7 +29,7 @@ class OpenflowRouter(SimpleRouter):
         self.ports = {}
         wsgi = kwargs['wsgi']
         wsgi.register(RouterController, {'OpenFlowRouter' : self})
-        self.bgp_thread = hub.spawn(self.register_remotePrefix)
+        self.bgp_thread = hub.spawn(self.update_remotePrefix)
 
 
     def register_localPrefix(self, dpid, destIpAddr, netMask, nextHopIpAddr):
@@ -42,16 +42,23 @@ class OpenflowRouter(SimpleRouter):
         self.bgps.remove_prefix(destIpAddr, netMask)
 
 
-    def register_remotePrefix(self):
+    def update_remotePrefix(self):
         while True:
             dpid = 1
             if not self.bgps.bgp_q.empty():
                 remotePrefix = self.bgps.bgp_q.get()
-                LOG.debug("remotePrefix=%s"%remotePrefix)
+                LOG.info("remotePrefix=%s"%remotePrefix)
                 destIpAddr = remotePrefix['prefix']
                 netMask = remotePrefix['netmask']
                 nextHopIpAddr = remotePrefix['nexthop']
-                self.register_route(dpid, destIpAddr, netMask, nextHopIpAddr)
+                withdraw = remotePrefix['withdraw']
+                if withdraw:
+                    self.remove_route(dpid, destIpAddr, netMask)
+                else:
+                    if destIpAddr != "0.0.0.0":
+                        self.register_route(dpid, destIpAddr, netMask, nextHopIpAddr)
+                    else:
+                        self.register_gateway(dpid, nextHopIpAddr)
             hub.sleep(1)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -64,7 +71,7 @@ class OpenflowRouter(SimpleRouter):
         super(OpenflowRouter, self).packet_in_handler(ev)
 
 
-    def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, Port, bgpPort):
+    def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, asNumber, Port, bgpPort):
         LOG.debug("Register Interface(port%s)"% Port)
         datapath = self.monitor.datapaths[dpid]
         outPort = int(Port)
@@ -75,10 +82,12 @@ class OpenflowRouter(SimpleRouter):
                      %(routerMac, "ff:ff:ff:ff:ff:ff", outPort))
             LOG.debug("Send Flow_mod packet for interface(%s)"% routerIp)
             self.add_flow_my_port(datapath, ether.ETH_TYPE_IP, routerIp)
-            if bgpPort=="":
-                pass
-            else:
-                offloadPort = int(bgpPort)
+        else:
+            LOG.debug("Unknown Interface!!")
+        if bgpPort:
+            offloadPort = int(bgpPort)
+            if asNumber:
+                asNum = int(asNumber)
                 LOG.debug("Send Flow_mod packet for bgp offload(arp)")
                 self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_ARP,
                                       "", outPort)
@@ -91,9 +100,7 @@ class OpenflowRouter(SimpleRouter):
                 self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_IP,
                                       hostIp, outPort)
                 LOG.debug("start BGP peering with [%s]"% hostIp)
-                self.bgps.add_neighbor(hostIp, 65001)
-        else:
-            LOG.debug("Unknown Interface!!")
+                self.bgps.add_neighbor(hostIp, asNum)
 
         self.bgps.add_prefix(routerIp, netMask)
 
@@ -302,9 +309,10 @@ class RouterController(ControllerBase):
         netMask = interface_param['interface']['netmask']
         port = interface_param['interface']['port']
         hostIp = interface_param['interface']['opposite_ipaddress']
+        asNumber = interface_param['interface']['opposite_asnumber']
         port_offload_bgp = interface_param['interface']['port_offload_bgp']
 
-        simpleRouter.register_inf(dpid, routerIp, netMask, routerMac, hostIp, port, port_offload_bgp)
+        simpleRouter.register_inf(dpid, routerIp, netMask, routerMac, hostIp, asNumber, port, port_offload_bgp)
 
         return {
             'id': '%016d' % dpid,
@@ -314,6 +322,7 @@ class RouterController(ControllerBase):
                 'ipaddress': '%s' % routerIp,
                 'netmask': '%s' % netMask,
                 'opposite_ipaddress': '%s' % hostIp,
+                'opposite_asnumber': '%s' % asNumber,
                 'port_offload_bgp': '%s' % port_offload_bgp
             }
         }

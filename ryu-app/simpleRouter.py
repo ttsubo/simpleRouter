@@ -368,7 +368,7 @@ class SimpleRouter(app_manager.RyuApp):
                  hostIp, mod_srcMac, mod_dstMac, outPort):
         ipaddress = IPNetwork(hostIp + '/' + "255.255.255.255")
         prefix = str(ipaddress.cidr)
-        LOG.info("add RoutingInfo for %s"% prefix)
+        LOG.info("add RoutingInfo(connect) for %s"% prefix)
         self.routingInfo[prefix] = RoutingTable(prefix, hostIp, "255.255.255.255", "0.0.0.0")
 
         match = datapath.ofproto_parser.OFPMatch(
@@ -404,7 +404,7 @@ class SimpleRouter(app_manager.RyuApp):
     def add_flow_gateway(self, datapath, ethertype, mod_srcMac, mod_dstMac, outPort, defaultGateway):
         ipaddress = IPNetwork("0.0.0.0" + '/' + "0.0.0.0")
         prefix = str(ipaddress.cidr)
-        LOG.info("add RoutingInfo for %s"% prefix)
+        LOG.info("add RoutingInfo(gateway) for %s"% prefix)
         self.routingInfo[prefix] = RoutingTable(prefix, "0.0.0.0", "0.0.0.0", defaultGateway)
         match = datapath.ofproto_parser.OFPMatch(eth_type=ethertype)
         actions =[datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
@@ -434,7 +434,7 @@ class SimpleRouter(app_manager.RyuApp):
     def add_flow_route(self, datapath, ethertype, mod_dstIp, mod_dstMask, mod_srcMac, mod_dstMac, outPort, nexthop):
         ipaddress = IPNetwork(mod_dstIp + '/' + mod_dstMask)
         prefix = str(ipaddress.cidr)
-        LOG.info("add RoutingInfo for %s"% prefix)
+        LOG.info("add RoutingInfo(prefix) for %s"% prefix)
         self.routingInfo[prefix] = RoutingTable(prefix, mod_dstIp, mod_dstMask, nexthop)
 
         match = datapath.ofproto_parser.OFPMatch(

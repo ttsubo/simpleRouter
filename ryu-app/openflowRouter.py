@@ -71,68 +71,101 @@ class OpenflowRouter(SimpleRouter):
         super(OpenflowRouter, self).packet_in_handler(ev)
 
 
-    def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, asNumber, Port, bgpPort, med, localPref):
+    def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, asNumber, Port, bgpPort, med, localPref, filterAsNumber):
         LOG.debug("Register Interface(port%s)"% Port)
         datapath = self.monitor.datapaths[dpid]
         outPort = int(Port)
-        if outPort == ROUTER_PORT1 or outPort == ROUTER_PORT2:
-            self.send_arp(datapath, 1, routerMac, routerIp, "ff:ff:ff:ff:ff:ff",
-                          hostIp, outPort)
-            LOG.debug("send ARP request %s => %s (port%d)"
-                     %(routerMac, "ff:ff:ff:ff:ff:ff", outPort))
-            LOG.debug("Send Flow_mod packet for interface(%s)"% routerIp)
-            self.add_flow_my_port(datapath, ether.ETH_TYPE_IP, routerIp)
-        else:
-            LOG.debug("Unknown Interface!!")
+        self.send_arp(datapath, 1, routerMac, routerIp, "ff:ff:ff:ff:ff:ff",
+                      hostIp, outPort)
+        LOG.debug("send ARP request %s => %s (port%d)"
+                 %(routerMac, "ff:ff:ff:ff:ff:ff", outPort))
+# deprecated
+#        if outPort == ROUTER_PORT1 or outPort == ROUTER_PORT2:
+#            self.send_arp(datapath, 1, routerMac, routerIp, "ff:ff:ff:ff:ff:ff",
+#                          hostIp, outPort)
+#            LOG.debug("send ARP request %s => %s (port%d)"
+#                     %(routerMac, "ff:ff:ff:ff:ff:ff", outPort))
+#            LOG.debug("Send Flow_mod packet for interface(%s)"% routerIp)
+#            self.add_flow_my_port(datapath, ether.ETH_TYPE_IP, routerIp)
+#        else:
+#            LOG.debug("Unknown Interface!!")
+
         if bgpPort:
             offloadPort = int(bgpPort)
             if asNumber:
                 asNum = int(asNumber)
+
+            if med:
                 medValue = int(med)
+            else:
+                medValue = None
+
+            if localPref:
                 localPrefValue = int(localPref)
-                LOG.debug("Send Flow_mod packet for bgp offload(arp)")
-                self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_ARP,
-                                      "", outPort)
-                self.add_flow_for_bgp(datapath, outPort, ether.ETH_TYPE_ARP,
-                                      "", offloadPort)
-                LOG.debug("Send Flow_mod packet for bgp offload(%s)"% routerIp)
-                self.add_flow_for_bgp(datapath, outPort, ether.ETH_TYPE_IP,
-                                      routerIp, offloadPort)
-                LOG.debug("Send Flow_mod packet for bgp offload(%s)"% hostIp)
-                self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_IP,
-                                      hostIp, outPort)
-                LOG.debug("start BGP peering with [%s]"% hostIp)
-                self.bgps.add_neighbor(hostIp, asNum, medValue, localPrefValue)
+            else:
+                localPrefValue = None
+
+            if filterAsNumber:
+                filterAsNum = int(filterAsNumber)
+            else:
+                filterAsNum = None
+
+            LOG.debug("Send Flow_mod packet for bgp offload(arp)")
+            self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_ARP,
+                                  "", outPort)
+            self.add_flow_for_bgp(datapath, outPort, ether.ETH_TYPE_ARP,
+                                  "", offloadPort)
+            LOG.debug("Send Flow_mod packet for bgp offload(%s)"% routerIp)
+            self.add_flow_for_bgp(datapath, outPort, ether.ETH_TYPE_IP,
+                                  routerIp, offloadPort)
+            LOG.debug("Send Flow_mod packet for bgp offload(%s)"% hostIp)
+            self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_IP,
+                                  hostIp, outPort)
+            LOG.debug("start BGP peering with [%s]"% hostIp)
+            self.bgps.add_neighbor(hostIp, asNum, medValue, localPrefValue, filterAsNum)
 
 
     def send_ping(self, dpid, targetIp, seq, data, sendPort):
         datapath = self.monitor.datapaths[dpid]
 
         for portNo, arp in self.arpInfo.items():
-            if portNo == ROUTER_PORT1:
-                (hostIpAddr1, hostMacAddr1, routerPort1) = arp.get_all()
-            elif portNo == ROUTER_PORT2:
-                (hostIpAddr2, hostMacAddr2, routerPort2) = arp.get_all()
+            if portNo == sendPort:
+                (hostIpAddr, hostMacAddr, routerPort) = arp.get_all()
 
         for portNo, port in self.portInfo.items():
-            if portNo == ROUTER_PORT1:
-                (routerIpAddr1, routerMacAddr1, routerPort1) = port.get_all()
-            elif portNo == ROUTER_PORT2:
-                (routerIpAddr2, routerMacAddr2, routerPort2) = port.get_all()
+            if portNo == sendPort:
+                (routerIpAddr, routerMacAddr, routerPort) = port.get_all()
 
-        if sendPort == ROUTER_PORT1:
-            srcIp = routerIpAddr1
-            srcMac = routerMacAddr1
-            dstIp = targetIp
-            dstMac = hostMacAddr1
-        elif sendPort == ROUTER_PORT2:
-            srcIp = routerIpAddr2
-            srcMac = routerMacAddr2
-            dstIp = targetIp
-            dstMac = hostMacAddr2
-        else:
-            LOG.debug("Illegal port!!")
-            return
+        srcIp = routerIpAddr
+        srcMac = routerMacAddr
+        dstIp = targetIp
+        dstMac = hostMacAddr
+# deprecated
+#        for portNo, arp in self.arpInfo.items():
+#            if portNo == ROUTER_PORT1:
+#                (hostIpAddr1, hostMacAddr1, routerPort1) = arp.get_all()
+#            elif portNo == ROUTER_PORT2:
+#                (hostIpAddr2, hostMacAddr2, routerPort2) = arp.get_all()
+#
+#        for portNo, port in self.portInfo.items():
+#            if portNo == ROUTER_PORT1:
+#                (routerIpAddr1, routerMacAddr1, routerPort1) = port.get_all()
+#            elif portNo == ROUTER_PORT2:
+#                (routerIpAddr2, routerMacAddr2, routerPort2) = port.get_all()
+#
+#        if sendPort == ROUTER_PORT1:
+#            srcIp = routerIpAddr1
+#            srcMac = routerMacAddr1
+#            dstIp = targetIp
+#            dstMac = hostMacAddr1
+#        elif sendPort == ROUTER_PORT2:
+#            srcIp = routerIpAddr2
+#            srcMac = routerMacAddr2
+#            dstIp = targetIp
+#            dstMac = hostMacAddr2
+#        else:
+#            LOG.debug("Illegal port!!")
+#            return
 
         self.send_icmp(datapath, srcMac, srcIp, dstMac, dstIp, sendPort, seq, data)
         LOG.debug("send icmp echo request %s => %s (port%d)"
@@ -313,9 +346,10 @@ class RouterController(ControllerBase):
         port_offload_bgp = interface_param['interface']['port_offload_bgp']
         bgp_med = interface_param['interface']['bgp_med']
         bgp_local_pref = interface_param['interface']['bgp_local_pref']
+        filterAsNumber = interface_param['interface']['bgp_filter_asnumber']
 
 
-        simpleRouter.register_inf(dpid, routerIp, netMask, routerMac, hostIp, asNumber, port, port_offload_bgp, bgp_med, bgp_local_pref)
+        simpleRouter.register_inf(dpid, routerIp, netMask, routerMac, hostIp, asNumber, port, port_offload_bgp, bgp_med, bgp_local_pref, filterAsNumber)
 
         return {
             'id': '%016d' % dpid,
@@ -328,7 +362,8 @@ class RouterController(ControllerBase):
                 'opposite_asnumber': '%s' % asNumber,
                 'port_offload_bgp': '%s' % port_offload_bgp,
                 'bgp_med': '%s' % bgp_med,
-                'bgp_local_pref': '%s' % bgp_local_pref
+                'bgp_local_pref': '%s' % bgp_local_pref,
+                'bgp_filter_asnumber': '%s' % filterAsNumber
             }
         }
 

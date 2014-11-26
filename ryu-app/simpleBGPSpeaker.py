@@ -47,11 +47,13 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
                      ssh_console=True)
 
 
-    def add_neighbor(self, peerIp, asNumber, med, localPref):
+    def add_neighbor(self, peerIp, asNumber, med, localPref, filterAsNum):
         self.speaker.neighbor_add(peerIp, asNumber, is_next_hop_self=True, multi_exit_disc=med)
-        as_path_filter = ASPathFilter(asNumber, policy=ASPathFilter.POLICY_TOP)
-        attribute_map = AttributeMap([as_path_filter], AttributeMap.ATTR_LOCAL_PREF, localPref)
-        self.speaker.attribute_map_set(peerIp, [attribute_map], route_family='ipv4')
+        if filterAsNum:
+            as_path_filter = ASPathFilter(filterAsNum, policy=ASPathFilter.POLICY_TOP)
+            if localPref:
+                attribute_map = AttributeMap([as_path_filter], AttributeMap.ATTR_LOCAL_PREF, localPref)
+                self.speaker.attribute_map_set(peerIp, [attribute_map], route_family='ipv4')
 
 
     def add_prefix(self, ipaddress, netmask, nexthop=""):

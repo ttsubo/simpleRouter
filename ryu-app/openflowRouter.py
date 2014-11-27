@@ -102,8 +102,6 @@ class OpenflowRouter(SimpleRouter):
                 LOG.debug("start BGP peering with [%s]"% hostIp)
                 self.bgps.add_neighbor(hostIp, asNum)
 
-        self.bgps.add_prefix(routerIp, netMask)
-
 
     def send_ping(self, dpid, targetIp, seq, data, sendPort):
         datapath = self.monitor.datapaths[dpid]

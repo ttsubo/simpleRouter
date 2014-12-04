@@ -474,7 +474,7 @@ class SimpleRouter(app_manager.RyuApp):
                 ipv4_dst=(dstIp, dstMask))
         inst = []
         mod = datapath.ofproto_parser.OFPFlowMod(
-                command=datapath.ofproto.OFPFC_DELETE,
+                command=datapath.ofproto.OFPFC_DELETE_STRICT,
                 datapath=datapath,
                 priority=0xf,
                 out_port=datapath.ofproto.OFPP_ANY,

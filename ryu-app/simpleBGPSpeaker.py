@@ -10,13 +10,15 @@ from operator import attrgetter
 from ryu.base import app_manager
 from ryu.lib import hub
 from ryu.services.protocols.bgp.bgpspeaker import BGPSpeaker
+from ryu.services.protocols.bgp.info_base.base import ASPathFilter
+from ryu.services.protocols.bgp.info_base.base import AttributeMap
 
 LOG = logging.getLogger('SimpleBGPSpeaker')
 LOG.setLevel(logging.INFO)
 logging.basicConfig()
 
 AS_NUMBER = 65002
-ROUTER_ID = '10.0.0.2'
+ROUTER_ID = '10.0.1.1'
 
 class SimpleBGPSpeaker(app_manager.RyuApp):
 
@@ -44,8 +46,12 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
                      best_path_change_handler=self.dump_remote_best_path_change,
                      ssh_console=True)
 
-    def add_neighbor(self, peerIp, asNumber):
-        self.speaker.neighbor_add(peerIp, asNumber)
+
+    def add_neighbor(self, peerIp, asNumber, med, localPref):
+        self.speaker.neighbor_add(peerIp, asNumber, is_next_hop_self=True, multi_exit_disc=med)
+        as_path_filter = ASPathFilter(asNumber, policy=ASPathFilter.POLICY_TOP)
+        attribute_map = AttributeMap([as_path_filter], AttributeMap.ATTR_LOCAL_PREF, localPref)
+        self.speaker.attribute_map_set(peerIp, [attribute_map], route_family='ipv4')
 
 
     def add_prefix(self, ipaddress, netmask, nexthop=""):

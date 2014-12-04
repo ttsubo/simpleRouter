@@ -71,7 +71,7 @@ class OpenflowRouter(SimpleRouter):
         super(OpenflowRouter, self).packet_in_handler(ev)
 
 
-    def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, asNumber, Port, bgpPort):
+    def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, asNumber, Port, bgpPort, med, localPref):
         LOG.debug("Register Interface(port%s)"% Port)
         datapath = self.monitor.datapaths[dpid]
         outPort = int(Port)
@@ -88,6 +88,8 @@ class OpenflowRouter(SimpleRouter):
             offloadPort = int(bgpPort)
             if asNumber:
                 asNum = int(asNumber)
+                medValue = int(med)
+                localPrefValue = int(localPref)
                 LOG.debug("Send Flow_mod packet for bgp offload(arp)")
                 self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_ARP,
                                       "", outPort)
@@ -100,7 +102,7 @@ class OpenflowRouter(SimpleRouter):
                 self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_IP,
                                       hostIp, outPort)
                 LOG.debug("start BGP peering with [%s]"% hostIp)
-                self.bgps.add_neighbor(hostIp, asNum)
+                self.bgps.add_neighbor(hostIp, asNum, medValue, localPrefValue)
 
 
     def send_ping(self, dpid, targetIp, seq, data, sendPort):
@@ -309,8 +311,11 @@ class RouterController(ControllerBase):
         hostIp = interface_param['interface']['opposite_ipaddress']
         asNumber = interface_param['interface']['opposite_asnumber']
         port_offload_bgp = interface_param['interface']['port_offload_bgp']
+        bgp_med = interface_param['interface']['bgp_med']
+        bgp_local_pref = interface_param['interface']['bgp_local_pref']
 
-        simpleRouter.register_inf(dpid, routerIp, netMask, routerMac, hostIp, asNumber, port, port_offload_bgp)
+
+        simpleRouter.register_inf(dpid, routerIp, netMask, routerMac, hostIp, asNumber, port, port_offload_bgp, bgp_med, bgp_local_pref)
 
         return {
             'id': '%016d' % dpid,
@@ -321,7 +326,9 @@ class RouterController(ControllerBase):
                 'netmask': '%s' % netMask,
                 'opposite_ipaddress': '%s' % hostIp,
                 'opposite_asnumber': '%s' % asNumber,
-                'port_offload_bgp': '%s' % port_offload_bgp
+                'port_offload_bgp': '%s' % port_offload_bgp,
+                'bgp_med': '%s' % bgp_med,
+                'bgp_local_pref': '%s' % bgp_local_pref
             }
         }
 
@@ -338,6 +345,7 @@ class RouterController(ControllerBase):
                 'ipaddress': '%s' % defaultIp,
             }
         }
+
 
     def setRoute(self, dpid, route_param):
         simpleRouter = self.router_spp

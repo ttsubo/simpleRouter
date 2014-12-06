@@ -25,9 +25,6 @@ LOG = logging.getLogger('SimpleRouter')
 LOG.setLevel(logging.INFO)
 logging.basicConfig()
 
-# deprecated
-#ROUTER_PORT1 = 1
-#ROUTER_PORT2 = 2
 
 class PortTable(object):
     def __init__(self, routerPort, routerIpAddr, routerMacAddr):
@@ -92,7 +89,6 @@ class SimpleRouter(app_manager.RyuApp):
         )
         datapath.send_msg(set_config)
         self.install_table_miss(datapath, datapath.id)
-
         return 0
 
 
@@ -159,9 +155,6 @@ class SimpleRouter(app_manager.RyuApp):
             hostIpAddr = ipPacket.src
             hostMacAddr = etherFrame.src
             self.arpInfo[inPort] = ArpTable(hostIpAddr, hostMacAddr, inPort)
-
-# deprecated
-#        self.check_arp_table(datapath)
         return 0
 
 
@@ -203,7 +196,6 @@ class SimpleRouter(app_manager.RyuApp):
         else: 
             buf = "ping ng ( Unknown reason )"
             self.ping_q.put(buf)
-
         return 0
 
 
@@ -228,32 +220,7 @@ class SimpleRouter(app_manager.RyuApp):
                        %(sendSrcMac, sendDstMac, sendPort))
         else:
             LOG.debug("Drop packet")
-
-# deprecated
-#    def reply_icmp(self, datapath, srcMac, dstMac, srcIp, dstIp, ttl, type, id,
-#                   seq, data, inPort):
-#
-#        routerIpAddr1 = None
-#        routerIpAddr2 = None
-#
-#        for portNo, port in self.portInfo.items():
-#            if portNo == ROUTER_PORT1:
-#                routerIpAddr1 = port.get_ip()
-#            elif portNo == ROUTER_PORT2:
-#                routerIpAddr2 = port.get_ip()
-#
-#        if dstIp == routerIpAddr1 or dstIp == routerIpAddr2:
-#            sendSrcMac = dstMac
-#            sendDstMac = srcMac
-#            sendSrcIp = dstIp
-#            sendDstIp = srcIp
-#            sendPort = inPort
-#            self.send_icmp(datapath, sendSrcMac, sendSrcIp, sendDstMac,
-#                           sendDstIp, sendPort, seq, data, id, 0, ttl)
-#            LOG.debug("send icmp echo reply %s => %s (port%d)"
-#                       %(sendSrcMac, sendDstMac, sendPort))
-#        else:
-#            LOG.debug("Drop packet")
+        return 0
 
 
     def receive_arp(self, datapath, packet, etherFrame, inPort):
@@ -275,24 +242,7 @@ class SimpleRouter(app_manager.RyuApp):
             self.reply_arp(datapath, etherFrame, arpPacket, arp_dstIp, inPort)
         elif arpPacket.opcode == 2:
             self.arpInfo[inPort] = ArpTable(hostIpAddr, hostMacAddr, inPort)
-# deprecated
-#            self.check_arp_table(datapath)
         return 0
-
-# deprecated
-#    def check_arp_table(self, datapath):
-#        hostMacAddr1 = None
-#        hostMacAddr2 = None
-#
-#        for portNo, arp in self.arpInfo.items():
-#            if portNo == ROUTER_PORT1: 
-#                hostMacAddr1 = arp.get_mac()
-#            elif portNo == ROUTER_PORT2: 
-#                hostMacAddr2 = arp.get_mac()
-#
-#        if hostMacAddr1 != None and hostMacAddr2 != None:
-#            self.send_flow(datapath)
-#        return 0
 
 
     def reply_arp(self, datapath, etherFrame, arpPacket, arp_dstIp, inPort):
@@ -315,35 +265,6 @@ class SimpleRouter(app_manager.RyuApp):
         else:
             LOG.debug("unknown arp requst received !")
             return 1
-
-# deprecated
-#    def reply_arp(self, datapath, etherFrame, arpPacket, arp_dstIp, inPort):
-#
-#        routerIpAddr1 = None
-#        routerIpAddr2 = None
-#        dstIp = arpPacket.src_ip
-#        srcIp = arpPacket.dst_ip
-#        dstMac = etherFrame.src
-#
-#        for portNo, port in self.portInfo.items():
-#            if portNo == ROUTER_PORT1:
-#                (routerIpAddr1, routerMacAddr1, routerPort1) = port.get_all()
-#            elif portNo == ROUTER_PORT2:
-#                (routerIpAddr2, routerMacAddr2, routerPort2) = port.get_all()
-#
-#        if arp_dstIp == routerIpAddr1:
-#            srcMac = routerMacAddr1
-#            outPort = ROUTER_PORT1
-#        elif arp_dstIp == routerIpAddr2:
-#            srcMac = routerMacAddr2
-#            outPort = ROUTER_PORT2
-#        else:
-#            LOG.debug("unknown arp requst received !")
-#            return 1
-#
-#        self.send_arp(datapath, 2, srcMac, srcIp, dstMac, dstIp, outPort)
-#        LOG.debug("send ARP reply %s => %s (port%d)" %(srcMac, dstMac, outPort))
-#        return 0
 
 
     def send_icmp(self, datapath, srcMac, srcIp, dstMac, dstIp, outPort, seq, data, id=1, type=8, ttl=64):
@@ -396,30 +317,6 @@ class SimpleRouter(app_manager.RyuApp):
             data=p.data)
         datapath.send_msg(out)
         return 0
-
-# deprecated
-#    def send_flow(self, datapath):
-#        for portNo, arp in self.arpInfo.items():
-#            if portNo == ROUTER_PORT1:
-#                (hostIpAddr1, hostMacAddr1, routerPort1) = arp.get_all()
-#            elif portNo == ROUTER_PORT2:
-#                (hostIpAddr2, hostMacAddr2, routerPort2) = arp.get_all()
-#
-#        for portNo, port in self.portInfo.items():
-#            if portNo == ROUTER_PORT1:
-#                (routerIpAddr1, routerMacAddr1, routerPort1) = port.get_all()
-#            elif portNo == ROUTER_PORT2:
-#                (routerIpAddr2, routerMacAddr2, routerPort2) = port.get_all()
-#        LOG.debug("Send Flow_mod packet for %s"% hostIpAddr2)
-#        self.add_flow_port(datapath, routerPort1, hostMacAddr1, routerMacAddr1,
-#                      ether.ETH_TYPE_IP, hostIpAddr2, routerMacAddr2,
-#                      hostMacAddr2, routerPort2)
-#
-#        LOG.debug("Send Flow_mod packet for %s"% hostIpAddr1)
-#        self.add_flow_port(datapath, routerPort2, hostMacAddr2, routerMacAddr2,
-#                      ether.ETH_TYPE_IP, hostIpAddr1, routerMacAddr1,
-#                      hostMacAddr1, routerPort1)
-#        return 0
 
 
     def add_flow_port(self, datapath, inPort, org_srcMac, org_dstMac, ethertype,
@@ -521,6 +418,7 @@ class SimpleRouter(app_manager.RyuApp):
         datapath.send_msg(mod)
         return 0
 
+
     def remove_flow_route(self, datapath, ethertype, dstIp, dstMask):
         ipaddress = IPNetwork(dstIp + '/' + dstMask)
         prefix = str(ipaddress.cidr)
@@ -541,34 +439,6 @@ class SimpleRouter(app_manager.RyuApp):
                 instructions=inst)
         datapath.send_msg(mod)
         return 0
-
-# deprecated
-#    def add_flow_my_port(self, datapath, ethertype, routerIp):
-#
-#        match = datapath.ofproto_parser.OFPMatch(
-#                eth_type=ethertype,
-#                ipv4_dst=routerIp )
-#        actions = [datapath.ofproto_parser.OFPActionOutput(
-#                datapath.ofproto.OFPP_CONTROLLER,
-#                datapath.ofproto.OFPCML_NO_BUFFER)]
-#        inst = [datapath.ofproto_parser.OFPInstructionActions(
-#                datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
-#        mod = datapath.ofproto_parser.OFPFlowMod(
-#                cookie=0,
-#                cookie_mask=0,
-#                table_id=0,
-#                command=datapath.ofproto.OFPFC_ADD,
-#                datapath=datapath,
-#                idle_timeout=0,
-#                hard_timeout=0,
-#                priority=0x10,
-#                buffer_id=0xffffffff,
-#                out_port=datapath.ofproto.OFPP_ANY,
-#                out_group=datapath.ofproto.OFPG_ANY,
-#                match=match,
-#                instructions=inst)
-#        datapath.send_msg(mod)
-#        return 0
 
 
     def add_flow_for_bgp(self, datapath, inPort, ethertype, destIp, outPort):

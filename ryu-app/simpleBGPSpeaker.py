@@ -17,8 +17,6 @@ LOG = logging.getLogger('SimpleBGPSpeaker')
 LOG.setLevel(logging.INFO)
 logging.basicConfig()
 
-AS_NUMBER = 65002
-ROUTER_ID = '10.0.1.1'
 
 class SimpleBGPSpeaker(app_manager.RyuApp):
 
@@ -26,7 +24,6 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         super(SimpleBGPSpeaker, self).__init__(*args, **kwargs)
         self.bgp_q = hub.Queue()
         self.name = 'bgps'
-        self.bgps_thread = hub.spawn(self._bgpspeaker)
 
 
     def dump_remote_best_path_change(self, event):
@@ -41,8 +38,8 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         LOG.debug("remote_prefix=%s"%remote_prefix)
         self.bgp_q.put(remote_prefix)
 
-    def _bgpspeaker(self):
-        self.speaker = BGPSpeaker(as_number=AS_NUMBER, router_id=ROUTER_ID,
+    def start_bgpspeaker(self, asNum, routerId):
+        self.speaker = BGPSpeaker(as_number=asNum, router_id=routerId,
                      best_path_change_handler=self.dump_remote_best_path_change,
                      ssh_console=True)
 

@@ -71,6 +71,13 @@ class OpenflowRouter(SimpleRouter):
         super(OpenflowRouter, self).packet_in_handler(ev)
 
 
+    def start_bgpspeaker(self, dpid, as_number, router_id):
+        if as_number:
+            asNum = int(as_number)
+        LOG.debug("start BGPSpeaker [%s, %s]"%(as_number, router_id))
+        self.bgps.start_bgpspeaker(asNum, router_id)
+
+
     def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, asNumber, Port, bgpPort, med, localPref, filterAsNumber):
         LOG.debug("Register Interface(port%s)"% Port)
         datapath = self.monitor.datapaths[dpid]
@@ -79,16 +86,6 @@ class OpenflowRouter(SimpleRouter):
                       hostIp, outPort)
         LOG.debug("send ARP request %s => %s (port%d)"
                  %(routerMac, "ff:ff:ff:ff:ff:ff", outPort))
-# deprecated
-#        if outPort == ROUTER_PORT1 or outPort == ROUTER_PORT2:
-#            self.send_arp(datapath, 1, routerMac, routerIp, "ff:ff:ff:ff:ff:ff",
-#                          hostIp, outPort)
-#            LOG.debug("send ARP request %s => %s (port%d)"
-#                     %(routerMac, "ff:ff:ff:ff:ff:ff", outPort))
-#            LOG.debug("Send Flow_mod packet for interface(%s)"% routerIp)
-#            self.add_flow_my_port(datapath, ether.ETH_TYPE_IP, routerIp)
-#        else:
-#            LOG.debug("Unknown Interface!!")
 
         if bgpPort:
             offloadPort = int(bgpPort)
@@ -140,32 +137,6 @@ class OpenflowRouter(SimpleRouter):
         srcMac = routerMacAddr
         dstIp = targetIp
         dstMac = hostMacAddr
-# deprecated
-#        for portNo, arp in self.arpInfo.items():
-#            if portNo == ROUTER_PORT1:
-#                (hostIpAddr1, hostMacAddr1, routerPort1) = arp.get_all()
-#            elif portNo == ROUTER_PORT2:
-#                (hostIpAddr2, hostMacAddr2, routerPort2) = arp.get_all()
-#
-#        for portNo, port in self.portInfo.items():
-#            if portNo == ROUTER_PORT1:
-#                (routerIpAddr1, routerMacAddr1, routerPort1) = port.get_all()
-#            elif portNo == ROUTER_PORT2:
-#                (routerIpAddr2, routerMacAddr2, routerPort2) = port.get_all()
-#
-#        if sendPort == ROUTER_PORT1:
-#            srcIp = routerIpAddr1
-#            srcMac = routerMacAddr1
-#            dstIp = targetIp
-#            dstMac = hostMacAddr1
-#        elif sendPort == ROUTER_PORT2:
-#            srcIp = routerIpAddr2
-#            srcMac = routerMacAddr2
-#            dstIp = targetIp
-#            dstMac = hostMacAddr2
-#        else:
-#            LOG.debug("Illegal port!!")
-#            return
 
         self.send_icmp(datapath, srcMac, srcIp, dstMac, dstIp, sendPort, seq, data)
         LOG.debug("send icmp echo request %s => %s (port%d)"
@@ -288,6 +259,18 @@ class RouterController(ControllerBase):
                         body = message)
 
 
+    @route('router', '/openflow/{dpid}/bgp', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
+    def set_bgp(self, req, dpid, **kwargs):
+
+        bgp_param = eval(req.body)
+        result = self.setBgp(int(dpid, 16), bgp_param)
+
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+
     @route('router', '/openflow/{dpid}/interface', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
     def set_interface(self, req, dpid, **kwargs):
 
@@ -333,6 +316,22 @@ class RouterController(ControllerBase):
         return Response(status=200,
                         content_type = 'application/json',
                         body = message)
+
+
+    def setBgp(self, dpid, bgp_param):
+        simpleRouter = self.router_spp
+        as_number = bgp_param['bgp']['as_number']
+        router_id = bgp_param['bgp']['router_id']
+
+        simpleRouter.start_bgpspeaker(dpid, as_number, router_id)
+
+        return {
+            'id': '%016d' % dpid,
+            'bgp': {
+                'as_number': '%s' % as_number,
+                'router_id': '%s' % router_id,
+            }
+        }
 
 
     def setInterface(self, dpid, interface_param):

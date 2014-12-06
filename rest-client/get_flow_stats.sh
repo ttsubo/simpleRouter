@@ -14,9 +14,6 @@ def start_get_flowstats(dpid):
 
     flowstats_list = request_info(operation, url_path, method, "")
 
-    inPort = {}
-    ethSrc = {}
-    ethDst = {}
     ipv4Dst = {}
     packets = {}
     bytes = {}
@@ -26,17 +23,13 @@ def start_get_flowstats(dpid):
     print "+++++++++++++++++++++++++++++++"
 
 
-    print "inPort   ethSrc             ethDst             ipv4Dst         packets  bytes"
-    print "-------- ------------------ ------------------ --------------- -------- --------"
+    print "destination        packets    bytes"
+    print "------------------ ---------- ----------"
     for a in range(len(flowstats_list['stats'])):
-        inPort[a] = flowstats_list['stats'][a]['inPort']
-        ethSrc[a] = flowstats_list['stats'][a]['ethSrc']
-        ethDst[a] = flowstats_list['stats'][a]['ethDst']
         ipv4Dst[a] = flowstats_list['stats'][a]['ipv4Dst']
         packets[a] = flowstats_list['stats'][a]['packets']
         bytes[a] = flowstats_list['stats'][a]['bytes']
-        print "%8s %18s %18s %15s %8d %8d" % (inPort[a], ethSrc[a], ethDst[a],
-                                              ipv4Dst[a], packets[a], bytes[a])
+        print "%-18s %10d %10d" % (ipv4Dst[a], packets[a], bytes[a])
         
 
 ##############

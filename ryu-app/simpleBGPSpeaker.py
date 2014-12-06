@@ -45,27 +45,32 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
 
 
     def add_neighbor(self, peerIp, asNumber, med, localPref, filterAsNum):
-        self.speaker.neighbor_add(peerIp, asNumber, is_next_hop_self=True, multi_exit_disc=med)
+        self.speaker.neighbor_add(peerIp, asNumber, is_next_hop_self=True,
+                                  multi_exit_disc=med)
         if filterAsNum:
-            as_path_filter = ASPathFilter(filterAsNum, policy=ASPathFilter.POLICY_TOP)
+            as_path_filter = ASPathFilter(filterAsNum,
+                                          policy=ASPathFilter.POLICY_TOP)
             if localPref:
-                attribute_map = AttributeMap([as_path_filter], AttributeMap.ATTR_LOCAL_PREF, localPref)
-                self.speaker.attribute_map_set(peerIp, [attribute_map], route_family='ipv4')
+                attribute_map = AttributeMap([as_path_filter],
+                                             AttributeMap.ATTR_LOCAL_PREF,
+                                             localPref)
+                self.speaker.attribute_map_set(peerIp, [attribute_map],
+                                               route_family='ipv4')
 
 
     def add_prefix(self, ipaddress, netmask, nexthop=""):
         prefix = IPNetwork(ipaddress + '/' + netmask)
         local_prefix = str(prefix.cidr)
         if nexthop:
-            LOG.info("Send BGP UPDATE Message for route(%s, %s)"%(local_prefix, nexthop))
+            LOG.info("Send BGP UPDATE Message [%s, %s]"%(local_prefix, nexthop))
             self.speaker.prefix_add(local_prefix, nexthop)
         else:
-            LOG.info("Send BGP UPDATE Message for route(%s)"%(local_prefix))
+            LOG.info("Send BGP UPDATE Message [%s]"%local_prefix)
             self.speaker.prefix_add(local_prefix)
 
     def remove_prefix(self, ipaddress, netmask):
         prefix = IPNetwork(ipaddress + '/' + netmask)
         local_prefix = str(prefix.cidr)
 
-        LOG.info("Send BGP UPDATE(withdraw) Message for route(%s)"%(local_prefix))
+        LOG.info("Send BGP UPDATE(withdraw) Message [%s]"%local_prefix)
         self.speaker.prefix_del(local_prefix)

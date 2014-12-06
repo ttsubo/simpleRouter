@@ -319,43 +319,6 @@ class SimpleRouter(app_manager.RyuApp):
         return 0
 
 
-    def add_flow_port(self, datapath, inPort, org_srcMac, org_dstMac, ethertype,
-                 hostIp, mod_srcMac, mod_dstMac, outPort):
-        ipaddress = IPNetwork(hostIp + '/' + "255.255.255.255")
-        prefix = str(ipaddress.cidr)
-        LOG.info("add RoutingInfo(connect) for %s"% prefix)
-        self.routingInfo[prefix] = RoutingTable(prefix, hostIp, "255.255.255.255", "0.0.0.0")
-
-        match = datapath.ofproto_parser.OFPMatch(
-                in_port=inPort,
-                eth_src=org_srcMac,
-                eth_dst=org_dstMac,
-                eth_type=ethertype,
-                ipv4_dst=hostIp )
-        actions =[datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
-                datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
-                datapath.ofproto_parser.OFPActionOutput(outPort, 0),
-                datapath.ofproto_parser.OFPActionDecNwTtl()]
-        inst = [datapath.ofproto_parser.OFPInstructionActions(
-                datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
-        mod = datapath.ofproto_parser.OFPFlowMod(
-                cookie=0,
-                cookie_mask=0,
-                table_id=0,
-                command=datapath.ofproto.OFPFC_ADD,
-                datapath=datapath,
-                idle_timeout=0,
-                hard_timeout=0,
-                priority=0x2,
-                buffer_id=0xffffffff,
-                out_port=datapath.ofproto.OFPP_ANY,
-                out_group=datapath.ofproto.OFPG_ANY,
-                match=match,
-                instructions=inst)
-        datapath.send_msg(mod)
-        return 0
-
-
     def add_flow_gateway(self, datapath, ethertype, mod_srcMac, mod_dstMac, outPort, defaultGateway):
         ipaddress = IPNetwork("0.0.0.0" + '/' + "0.0.0.0")
         prefix = str(ipaddress.cidr)
@@ -389,6 +352,8 @@ class SimpleRouter(app_manager.RyuApp):
     def add_flow_route(self, datapath, ethertype, mod_dstIp, mod_dstMask, mod_srcMac, mod_dstMac, outPort, nexthop):
         ipaddress = IPNetwork(mod_dstIp + '/' + mod_dstMask)
         prefix = str(ipaddress.cidr)
+        if nexthop is None:
+            nexthop = "0.0.0.0"
         LOG.info("add RoutingInfo(prefix) for %s"% prefix)
         self.routingInfo[prefix] = RoutingTable(prefix, mod_dstIp, mod_dstMask, nexthop)
 

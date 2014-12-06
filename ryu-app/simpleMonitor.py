@@ -1,6 +1,7 @@
 import logging
 import datetime
 
+from netaddr.ip import IPNetwork
 from operator import attrgetter
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -77,31 +78,29 @@ class SimpleMonitor(app_manager.RyuApp):
 
         for stat in [flow for flow in body if flow.priority == 2]: 
             self.flowStats[stat.match["in_port"]] = FlowStats(
-                                                   stat.match["in_port"],
-                                                   stat.match["eth_src"],
-                                                   stat.match["eth_dst"],
                                                    stat.match["ipv4_dst"],
                                                    stat.packet_count,
                                                    stat.byte_count)
 
         for stat in [flow for flow in body if flow.priority == 15]: 
             if isinstance(stat.match["ipv4_dst"], str):
-                ipv4_dst = stat.match["ipv4_dst"]
+                ipv4dst = stat.match["ipv4_dst"]
+                self.flowStats[ipv4dst] = FlowStats(
+                                                   ipv4dst,
+                                                   stat.packet_count,
+                                                   stat.byte_count)
             else:
-                ipv4_dst = stat.match["ipv4_dst"][0]
-            self.flowStats[stat.match["ipv4_dst"][0]] = FlowStats(
-                                                   "*",
-                                                   "*",
-                                                   "*",
-                                                   ipv4_dst,
+                ipaddress = stat.match["ipv4_dst"][0]
+                netmask = stat.match["ipv4_dst"][1]
+                prefix = IPNetwork(ipaddress + '/' + netmask)
+                ipv4dst = str(prefix.cidr)
+                self.flowStats[ipv4dst] = FlowStats(
+                                                   ipv4dst,
                                                    stat.packet_count,
                                                    stat.byte_count)
 
         for stat in [flow for flow in body if flow.priority == 1]: 
             self.flowStats["*"] = FlowStats(
-                                                   "*",
-                                                   "*",
-                                                   "*",
                                                    "0.0.0.0/0",
                                                    stat.packet_count,
                                                    stat.byte_count)
@@ -128,15 +127,12 @@ class PortStats(object):
 
 
 class FlowStats(object):
-    def __init__(self, inPort, ethSrc, ethDst, ipv4Dst, packetCount, byteCount):
+    def __init__(self, ipv4Dst, packetCount, byteCount):
         super(FlowStats, self).__init__()
 
-        self.inPort = inPort
-        self.ethSrc = ethSrc
-        self.ethDst = ethDst
         self.ipv4Dst = ipv4Dst
         self.packets = packetCount
         self.bytes = byteCount
 
     def getFlow(self):
-        return self.inPort, self.ethSrc, self.ethDst, self.ipv4Dst, self.packets, self.bytes
+        return self.ipv4Dst, self.packets, self.bytes

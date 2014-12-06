@@ -11,7 +11,7 @@ from webob import Response
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 
 LOG = logging.getLogger('OpenflowRouter')
-LOG.setLevel(logging.INFO)
+LOG.setLevel(logging.DEBUG)
 
 class OpenflowRouter(SimpleRouter):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -30,6 +30,7 @@ class OpenflowRouter(SimpleRouter):
         wsgi = kwargs['wsgi']
         wsgi.register(RouterController, {'OpenFlowRouter' : self})
         self.bgp_thread = hub.spawn(self.update_remotePrefix)
+        self.redistributeConnect = False
 
 
     def register_localPrefix(self, dpid, destIpAddr, netMask, nextHopIpAddr):
@@ -40,6 +41,39 @@ class OpenflowRouter(SimpleRouter):
     def delete_localPrefix(self, dpid, destIpAddr, netMask):
         self.remove_route(dpid, destIpAddr, netMask)
         self.bgps.remove_prefix(destIpAddr, netMask)
+
+
+    def redistribute_connect(self, dpid, redistribute):
+        netMask = "255.255.255.255"
+        nextHopIpAddr = None
+        if redistribute == "ON":
+            if self.redistributeConnect:
+                LOG.info("Skip redistributeConnect[ON]")
+            else:
+                self.redistributeConnect = True
+                for portNo, port in self.portInfo.items():
+                    (routerIpAddr, routerMacAddr, routerPort1) = port.get_all()
+                    for arp in self.arpInfo.values():
+                        (hostIpAddr, hostMacAddr, routerPort2) = arp.get_all()
+                        if routerPort1 == routerPort2:
+                            destIpAddr = hostIpAddr
+                            self.register_route(dpid, destIpAddr, netMask,
+                                                nextHopIpAddr)
+                            self.bgps.add_prefix(destIpAddr, netMask)
+
+        elif redistribute == "OFF":
+            if self.redistributeConnect:
+                self.redistributeConnect = False
+                for portNo, port in self.portInfo.items():
+                    (routerIpAddr, routerMacAddr, routerPort1) = port.get_all()
+                    for arp in self.arpInfo.values():
+                        (hostIpAddr, hostMacAddr, routerPort2) = arp.get_all()
+                        if routerPort1 == routerPort2:
+                            destIpAddr = hostIpAddr
+                            self.remove_route(dpid, destIpAddr, netMask)
+                            self.bgps.remove_prefix(destIpAddr, netMask)
+            else:
+                LOG.info("Skip redistributeConnect[OFF]")
 
 
     def update_remotePrefix(self):
@@ -56,15 +90,18 @@ class OpenflowRouter(SimpleRouter):
                     self.remove_route(dpid, destIpAddr, netMask)
                 else:
                     if destIpAddr != "0.0.0.0":
-                        self.register_route(dpid, destIpAddr, netMask, nextHopIpAddr)
+                        self.register_route(dpid, destIpAddr, netMask,
+                                            nextHopIpAddr)
                     else:
                         self.register_gateway(dpid, nextHopIpAddr)
             hub.sleep(1)
+
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         super(OpenflowRouter, self).switch_features_handler(ev)
         datapath = ev.msg.datapath
+
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
@@ -119,7 +156,8 @@ class OpenflowRouter(SimpleRouter):
             self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_IP,
                                   hostIp, outPort)
             LOG.debug("start BGP peering with [%s]"% hostIp)
-            self.bgps.add_neighbor(hostIp, asNum, medValue, localPrefValue, filterAsNum)
+            self.bgps.add_neighbor(hostIp, asNum, medValue, localPrefValue,
+                                   filterAsNum)
 
 
     def send_ping(self, dpid, targetIp, seq, data, sendPort):
@@ -138,7 +176,8 @@ class OpenflowRouter(SimpleRouter):
         dstIp = targetIp
         dstMac = hostMacAddr
 
-        self.send_icmp(datapath, srcMac, srcIp, dstMac, dstIp, sendPort, seq, data)
+        self.send_icmp(datapath, srcMac, srcIp, dstMac, dstIp, sendPort, seq,
+                       data)
         LOG.debug("send icmp echo request %s => %s (port%d)"
                    %(srcMac, dstMac, sendPort))
 
@@ -157,7 +196,7 @@ class OpenflowRouter(SimpleRouter):
             if routerPort == outPort:
                 mod_srcMac = routerMacAddr
 
-        if mod_dstMac != None and mod_srcMac !=None:
+        if mod_dstMac and mod_srcMac:
             self.add_flow_gateway(datapath, ether.ETH_TYPE_IP, mod_srcMac,
                                   mod_dstMac, outPort, defaultIpAddr)
             LOG.debug("Send Flow_mod packet for gateway(%s)"% defaultIpAddr)
@@ -170,17 +209,22 @@ class OpenflowRouter(SimpleRouter):
 
         for arp in self.arpInfo.values():
             (hostIpAddr, hostMacAddr, routerPort) = arp.get_all()
-            if nextHopIpAddr == hostIpAddr:
-                mod_dstMac = hostMacAddr
-                outPort = routerPort
+            if nextHopIpAddr:
+                if nextHopIpAddr == hostIpAddr:
+                    mod_dstMac = hostMacAddr
+                    outPort = routerPort
+            else:
+                if destIpAddr == hostIpAddr:
+                    mod_dstMac = hostMacAddr
+                    outPort = routerPort
 
         for port in self.portInfo.values():
             (routerIpAddr, routerMacAddr, routerPort) = port.get_all()
             if routerPort == outPort:
                 mod_srcMac = routerMacAddr
 
-        if mod_dstMac != None and mod_srcMac !=None:
-            LOG.debug("Send Flow_mod packet for route(%s, %s, %s)"%(destIpAddr, netMask, nextHopIpAddr))
+        if mod_dstMac and mod_srcMac:
+            LOG.debug("Send Flow_mod(create) [%s, %s, %s]"%(destIpAddr, netMask, nextHopIpAddr))
             self.add_flow_route(datapath, ether.ETH_TYPE_IP, destIpAddr, netMask, mod_srcMac, mod_dstMac, outPort, nextHopIpAddr)
         else:
             LOG.debug("Unknown nextHopIpAddress!!")
@@ -189,7 +233,7 @@ class OpenflowRouter(SimpleRouter):
     def remove_route(self, dpid, destIpAddr, netMask):
         datapath = self.monitor.datapaths[dpid]
 
-        LOG.debug("Send Flow_mod packet for route(%s, %s)"%(destIpAddr, netMask))
+        LOG.debug("Send Flow_mod(delete) [%s, %s]"%(destIpAddr, netMask))
         self.remove_flow_route(datapath, ether.ETH_TYPE_IP, destIpAddr, netMask)
 
 
@@ -294,11 +338,23 @@ class RouterController(ControllerBase):
                         content_type = 'application/json',
                         body = message)
 
+
     @route('router', '/openflow/{dpid}/route', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
     def set_route(self, req, dpid, **kwargs):
 
         route_param = eval(req.body)
         result = self.setRoute(int(dpid, 16), route_param)
+
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+    @route('router', '/openflow/{dpid}/redistribute', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
+    def set_redistributeConnect(self, req, dpid, **kwargs):
+
+        connect_param = eval(req.body)
+        result = self.redistributeConnect(int(dpid, 16), connect_param)
 
         message = json.dumps(result)
         return Response(status=200,
@@ -399,6 +455,20 @@ class RouterController(ControllerBase):
         }
 
 
+    def redistributeConnect(self, dpid, connect_param):
+        simpleRouter = self.router_spp
+        redistribute = connect_param['bgp']['redistribute']
+
+        simpleRouter.redistribute_connect(dpid, redistribute)
+
+        return {
+            'id': '%016d' % dpid,
+            'bgp': {
+                'redistribute': '%s' % redistribute,
+            }
+        }
+
+
     def delRoute(self, dpid, route_param):
         simpleRouter = self.router_spp
         destinationIp = route_param['route']['destination']
@@ -434,7 +504,7 @@ class RouterController(ControllerBase):
             else:
                 result[seq] = "ping ng ( Request Timeout for icmp_seq %d )" %seq
 
-        if result != None:
+        if result:
             return {
                'id': '%016d' % dpid,
                'ping': result.values()
@@ -542,13 +612,12 @@ class RouterController(ControllerBase):
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("%s : FlowStats" % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
         LOG.info("+++++++++++++++++++++++++++++++")
-        LOG.info("inPort   ethSrc             ethDst             ipv4Dst         packets  bytes")
-        LOG.info("-------- ------------------ ------------------ --------------- -------- --------")
+        LOG.info("destination        packets    bytes")
+        LOG.info("------------------ ---------- ----------")
 
         for stat in simpleRouter.monitor.flowStats.values():
-            (inPort, ethSrc, ethDst, ipv4Dst, packets, bytes) = stat.getFlow()
-            LOG.info("%8s %18s %18s %15s %8d %8d" % (inPort, ethSrc, ethDst,
-                                                  ipv4Dst, packets, bytes))
+            (ipv4Dst, packets, bytes) = stat.getFlow()
+            LOG.info("%-18s %10d %10d" % (ipv4Dst, packets, bytes))
         return {
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),

@@ -38,10 +38,23 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         LOG.debug("remote_prefix=%s"%remote_prefix)
         self.bgp_q.put(remote_prefix)
 
+
+
+    def detect_peer_down(self, remote_ip, remote_as):
+        nowtime = datetime.datetime.now()
+        LOG.info("%s: Peer down!![remote_ip: %s, remote_as: %s]"%(nowtime, remote_ip, remote_as))
+
+
+    def detect_peer_up(self, remote_ip, remote_as):
+        nowtime = datetime.datetime.now()
+        LOG.info("%s: Peer up!![remote_ip: %s, remote_as: %s]"%(nowtime, remote_ip, remote_as))
+
+
     def start_bgpspeaker(self, asNum, routerId):
         self.speaker = BGPSpeaker(as_number=asNum, router_id=routerId,
                      best_path_change_handler=self.dump_remote_best_path_change,
-                     ssh_console=True)
+                     peer_down_handler=self.detect_peer_down,
+                     peer_up_handler=self.detect_peer_up)
 
 
     def add_neighbor(self, peerIp, asNumber, med, localPref, filterAsNum):
@@ -74,3 +87,8 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
 
         LOG.info("Send BGP UPDATE(withdraw) Message [%s]"%local_prefix)
         self.speaker.prefix_del(local_prefix)
+
+    def show_rib(self):
+        family ="ipv4"
+        format = "cli"
+        return self.speaker.rib_get(family, format)

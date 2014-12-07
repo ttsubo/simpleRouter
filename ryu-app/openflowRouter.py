@@ -11,7 +11,7 @@ from webob import Response
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 
 LOG = logging.getLogger('OpenflowRouter')
-LOG.setLevel(logging.DEBUG)
+LOG.setLevel(logging.INFO)
 
 class OpenflowRouter(SimpleRouter):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -41,6 +41,10 @@ class OpenflowRouter(SimpleRouter):
     def delete_localPrefix(self, dpid, destIpAddr, netMask):
         self.remove_route(dpid, destIpAddr, netMask)
         self.bgps.remove_prefix(destIpAddr, netMask)
+
+
+    def get_bgp_rib(self):
+        return self.bgps.show_rib()
 
 
     def redistribute_connect(self, dpid, redistribute):
@@ -81,7 +85,7 @@ class OpenflowRouter(SimpleRouter):
             dpid = 1
             if not self.bgps.bgp_q.empty():
                 remotePrefix = self.bgps.bgp_q.get()
-                LOG.info("remotePrefix=%s"%remotePrefix)
+                LOG.debug("remotePrefix=%s"%remotePrefix)
                 destIpAddr = remotePrefix['prefix']
                 netMask = remotePrefix['netmask']
                 nextHopIpAddr = remotePrefix['nexthop']
@@ -224,8 +228,10 @@ class OpenflowRouter(SimpleRouter):
                 mod_srcMac = routerMacAddr
 
         if mod_dstMac and mod_srcMac:
-            LOG.debug("Send Flow_mod(create) [%s, %s, %s]"%(destIpAddr, netMask, nextHopIpAddr))
-            self.add_flow_route(datapath, ether.ETH_TYPE_IP, destIpAddr, netMask, mod_srcMac, mod_dstMac, outPort, nextHopIpAddr)
+            LOG.debug("Send Flow_mod(create) [%s, %s, %s]"%(destIpAddr, netMask,                      nextHopIpAddr))
+            self.add_flow_route(datapath, ether.ETH_TYPE_IP, destIpAddr,
+                                netMask, mod_srcMac, mod_dstMac, outPort,
+                                nextHopIpAddr)
         else:
             LOG.debug("Unknown nextHopIpAddress!!")
 
@@ -276,6 +282,16 @@ class RouterController(ControllerBase):
     def get_portstats(self, req, dpid, **kwargs):
 
         result = self.getPortStats(int(dpid, 16))
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+
+    @route('router', '/openflow/{dpid}/rib', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
+    def get_bgprib(self, req, dpid, **kwargs):
+
+        result = self.getBgpRib(int(dpid, 16))
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -578,6 +594,25 @@ class RouterController(ControllerBase):
             route.__dict__ for route in simpleRouter.routingInfo.values()
           ]
         }
+
+
+    def getBgpRib(self, dpid):
+        simpleRouter = self.router_spp
+
+        nowtime = datetime.datetime.now()
+        LOG.info("+++++++++++++++++++++++++++++++")
+        LOG.info("%s : Show rib " % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
+        LOG.info("+++++++++++++++++++++++++++++++")
+
+        result = simpleRouter.get_bgp_rib()
+        LOG.info("%s" % result)
+
+        return {
+          'id': '%016d' % dpid,
+          'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
+          'rib': '%s' % result,
+        }
+
 
 
     def getPortStats(self, dpid):

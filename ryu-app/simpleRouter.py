@@ -322,7 +322,7 @@ class SimpleRouter(app_manager.RyuApp):
     def add_flow_gateway(self, datapath, ethertype, mod_srcMac, mod_dstMac, outPort, defaultGateway):
         ipaddress = IPNetwork("0.0.0.0" + '/' + "0.0.0.0")
         prefix = str(ipaddress.cidr)
-        LOG.info("add RoutingInfo(gateway) for %s"% prefix)
+        LOG.debug("add RoutingInfo(gateway) for %s"% prefix)
         self.routingInfo[prefix] = RoutingTable(prefix, "0.0.0.0", "0.0.0.0", defaultGateway)
         match = datapath.ofproto_parser.OFPMatch(eth_type=ethertype)
         actions =[datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
@@ -354,7 +354,7 @@ class SimpleRouter(app_manager.RyuApp):
         prefix = str(ipaddress.cidr)
         if nexthop is None:
             nexthop = "0.0.0.0"
-        LOG.info("add RoutingInfo(prefix) for %s"% prefix)
+        LOG.debug("add RoutingInfo(prefix) for %s"% prefix)
         self.routingInfo[prefix] = RoutingTable(prefix, mod_dstIp, mod_dstMask, nexthop)
 
         match = datapath.ofproto_parser.OFPMatch(
@@ -387,7 +387,7 @@ class SimpleRouter(app_manager.RyuApp):
     def remove_flow_route(self, datapath, ethertype, dstIp, dstMask):
         ipaddress = IPNetwork(dstIp + '/' + dstMask)
         prefix = str(ipaddress.cidr)
-        LOG.info("delete RoutingInfo for %s"% prefix)
+        LOG.debug("delete RoutingInfo for %s"% prefix)
         self.routingInfo.pop(prefix)
 
         match = datapath.ofproto_parser.OFPMatch(

@@ -308,6 +308,16 @@ class RouterController(ControllerBase):
                         body = message)
 
 
+    @route('router', '/openflow/{dpid}/status/peer', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
+    def get_peerstatus(self, req, dpid, **kwargs):
+
+        result = self.getPeerStatus(int(dpid, 16))
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+
     @route('router', '/openflow/{dpid}/ping', methods=['PUT'], requirements={'dpid': dpid.DPID_PATTERN})
     def put_ping(self, req, dpid, **kwargs):
         ping_param = eval(req.body)
@@ -537,15 +547,15 @@ class RouterController(ControllerBase):
         LOG.info("portNo   IpAddress       MacAddress")
         LOG.info("-------- --------------- -----------------")
 
-        for port in simpleRouter.portInfo.values():
-            (routerIpAddr, routerMacAddr, routerPort) = port.get_all()
+        for k, v in sorted(simpleRouter.portInfo.items()):
+            (routerIpAddr, routerMacAddr, routerPort) = v.get_all()
             LOG.info("%8x %-15s %s" % (routerPort, routerIpAddr, routerMacAddr))
 
         return {
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
           'interface': [
-            port.__dict__ for port in simpleRouter.portInfo.values()
+            v.__dict__ for k, v in sorted(simpleRouter.portInfo.items())
           ]
         }
 
@@ -560,15 +570,15 @@ class RouterController(ControllerBase):
         LOG.info("portNo   MacAddress        IpAddress")
         LOG.info("-------- ----------------- ------------")
 
-        for arp in simpleRouter.arpInfo.values():
-            (hostIpAddr, hostMacAddr, routerPort) = arp.get_all()
+        for k, v in sorted(simpleRouter.arpInfo.items()):
+            (hostIpAddr, hostMacAddr, routerPort) = v.get_all()
             LOG.info("%8x %s %s" % (routerPort, hostMacAddr, hostIpAddr))
 
         return {
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
           'arp': [
-            arp.__dict__ for arp in simpleRouter.arpInfo.values()
+            v.__dict__ for k, v in sorted(simpleRouter.arpInfo.items())
           ]
         }
 
@@ -583,15 +593,15 @@ class RouterController(ControllerBase):
         LOG.info("prefix             nexthop")
         LOG.info("------------------ ---------------")
 
-        for route in simpleRouter.routingInfo.values():
-            (prefix, nextHopIpAddr) = route.get_route()
+        for k, v in sorted(simpleRouter.routingInfo.items()):
+            (prefix, nextHopIpAddr) = v.get_route()
             LOG.info("%-18s %-15s" % (prefix, nextHopIpAddr))
 
         return {
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
           'route': [
-            route.__dict__ for route in simpleRouter.routingInfo.values()
+            v.__dict__ for k, v in sorted(simpleRouter.routingInfo.items())
           ]
         }
 
@@ -625,9 +635,9 @@ class RouterController(ControllerBase):
         LOG.info("portNo   rxPackets rxBytes  rxErrors txPackets txBytes  txErrors")
         LOG.info("-------- --------- -------- -------- --------- -------- --------")
 
-        for stat in simpleRouter.monitor.portStats.values():
-            (portNo, rxPackets, rxBytes, rxErrors) = stat.getPort("rx")
-            (portNo, txPackets, txBytes, txErrors) = stat.getPort("tx")
+        for k, v in sorted(simpleRouter.monitor.portStats.items()):
+            (portNo, rxPackets, rxBytes, rxErrors) = v.getPort("rx")
+            (portNo, txPackets, txBytes, txErrors) = v.getPort("tx")
             LOG.info("%8x %9d %8d %8d %9d %8d %8d" % (portNo,
                                                   rxPackets, rxBytes, rxErrors,
                                                   txPackets, txBytes, txErrors))
@@ -635,7 +645,7 @@ class RouterController(ControllerBase):
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
           'stats': [
-            stat.__dict__ for stat in simpleRouter.monitor.portStats.values()
+            v.__dict__ for k, v in sorted(simpleRouter.monitor.portStats.items())
           ]
         }
 
@@ -650,14 +660,37 @@ class RouterController(ControllerBase):
         LOG.info("destination        packets    bytes")
         LOG.info("------------------ ---------- ----------")
 
-        for stat in simpleRouter.monitor.flowStats.values():
-            (ipv4Dst, packets, bytes) = stat.getFlow()
+        for k, v in sorted(simpleRouter.monitor.flowStats.items()):
+            (ipv4Dst, packets, bytes) = v.getFlow()
             LOG.info("%-18s %10d %10d" % (ipv4Dst, packets, bytes))
         return {
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
           'stats': [
-            stat.__dict__ for stat in simpleRouter.monitor.flowStats.values()
+            v.__dict__ for k, v in sorted(simpleRouter.monitor.flowStats.items())
+          ]
+        }
+
+
+    def getPeerStatus(self, dpid):
+        simpleRouter = self.router_spp
+
+        nowtime = datetime.datetime.now()
+        LOG.info("+++++++++++++++++++++++++++++++")
+        LOG.info("%s : Peer Status " % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
+        LOG.info("+++++++++++++++++++++++++++++++")
+        LOG.info("occurTime            status    myPeer             remotePeer         asNumber")
+        LOG.info("-------------------- --------- ------------------ ------------------ --------")
+
+        for k, v in sorted(simpleRouter.bgps.bgpPeerStatus.items()):
+            (occurTime, status, myPeer, remotePeer, asNumber) = v.getStatus()
+            LOG.info("%s  %-9s %-18s %-18s %s" % (occurTime, status, myPeer,
+                                               remotePeer, asNumber))
+        return {
+          'id': '%016d' % dpid,
+          'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
+          'status': [
+            v.__dict__ for k, v in sorted(simpleRouter.bgps.bgpPeerStatus.items())
           ]
         }
 

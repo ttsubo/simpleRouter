@@ -18,12 +18,26 @@ LOG.setLevel(logging.INFO)
 logging.basicConfig()
 
 
+class BgpPeerStatus(object):
+    def __init__(self, nowtime, status, myRouterId, remote_ip, remote_as):
+        super(BgpPeerStatus, self).__init__()
+
+        self.occurTime = nowtime.strftime("%Y/%m/%d %H:%M:%S")
+        self.status = status
+        self.myPeer = myRouterId
+        self.remotePeer = remote_ip
+        self.asNumber = remote_as
+    def getStatus(self):
+        return self.occurTime, self.status, self.myPeer, self.remotePeer, self.asNumber
+
+
 class SimpleBGPSpeaker(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(SimpleBGPSpeaker, self).__init__(*args, **kwargs)
         self.bgp_q = hub.Queue()
         self.name = 'bgps'
+        self.bgpPeerStatus = {}
 
 
     def dump_remote_best_path_change(self, event):
@@ -39,18 +53,28 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         self.bgp_q.put(remote_prefix)
 
 
-
     def detect_peer_down(self, remote_ip, remote_as):
         nowtime = datetime.datetime.now()
         LOG.info("%s: Peer down!![remote_ip: %s, remote_as: %s]"%(nowtime, remote_ip, remote_as))
+        self.bgpPeerStatus[nowtime] = BgpPeerStatus(nowtime,
+                                                    "Peer Down",
+                                                    self.myRouterId,
+                                                    remote_ip,
+                                                    remote_as)
 
 
     def detect_peer_up(self, remote_ip, remote_as):
         nowtime = datetime.datetime.now()
         LOG.info("%s: Peer up!![remote_ip: %s, remote_as: %s]"%(nowtime, remote_ip, remote_as))
+        self.bgpPeerStatus[nowtime] = BgpPeerStatus(nowtime,
+                                                    "Peer Up",
+                                                    self.myRouterId,
+                                                    remote_ip,
+                                                    remote_as)
 
 
     def start_bgpspeaker(self, asNum, routerId):
+        self.myRouterId = routerId
         self.speaker = BGPSpeaker(as_number=asNum, router_id=routerId,
                      best_path_change_handler=self.dump_remote_best_path_change,
                      peer_down_handler=self.detect_peer_down,

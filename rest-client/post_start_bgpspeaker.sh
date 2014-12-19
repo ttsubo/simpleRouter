@@ -18,7 +18,7 @@ CONF.register_cli_opts(bgp_opts, 'Bgp')
 ##################
 
 def start_bgp(dpid, as_number, router_id):
-    operation = "start_route"
+    operation = "start_bgp"
     url_path = "/openflow/" + dpid + "/bgp"
     method = "POST"
     request = '''
@@ -29,9 +29,9 @@ def start_bgp(dpid, as_number, router_id):
 }
 }'''%(as_number, router_id)
 
-    route_result = request_info(operation, url_path, method, request)
+    bgp_result = request_info(operation, url_path, method, request)
     print "----------"
-    print json.dumps(route_result, sort_keys=False, indent=4)
+    print json.dumps(bgp_result, sort_keys=False, indent=4)
     print ""
 
 

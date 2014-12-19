@@ -81,6 +81,14 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
                      peer_up_handler=self.detect_peer_up)
 
 
+    def start_bmpclient(self, address, port):
+        return self.speaker.bmp_server_add(address, port)
+
+
+    def stop_bmpclient(self, address, port):
+        return self.speaker.bmp_server_del(address, port)
+
+
     def add_neighbor(self, peerIp, asNumber, med, localPref, filterAsNum):
         self.speaker.neighbor_add(peerIp, asNumber, is_next_hop_self=True,
                                   multi_exit_disc=med)

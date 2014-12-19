@@ -119,6 +119,20 @@ class OpenflowRouter(SimpleRouter):
         self.bgps.start_bgpspeaker(asNum, router_id)
 
 
+    def start_bmpclient(self, dpid, address, port):
+        if port:
+            portNum = int(port)
+        LOG.debug("start BmpClient [%s, %s]"%(address, port))
+        self.bgps.start_bmpclient(address, portNum)
+
+
+    def stop_bmpclient(self, dpid, address, port):
+        if port:
+            portNum = int(port)
+        LOG.debug("stop BmpClient [%s, %s]"%(address, port))
+        self.bgps.stop_bmpclient(address, portNum)
+
+
     def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, asNumber, Port, bgpPort, med, localPref, filterAsNumber):
         LOG.debug("Register Interface(port%s)"% Port)
         datapath = self.monitor.datapaths[dpid]
@@ -330,10 +344,34 @@ class RouterController(ControllerBase):
 
 
     @route('router', '/openflow/{dpid}/bgp', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
-    def set_bgp(self, req, dpid, **kwargs):
+    def start_bgp(self, req, dpid, **kwargs):
 
         bgp_param = eval(req.body)
-        result = self.setBgp(int(dpid, 16), bgp_param)
+        result = self.startBgp(int(dpid, 16), bgp_param)
+
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+
+    @route('router', '/openflow/{dpid}/bmp', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
+    def start_bmp(self, req, dpid, **kwargs):
+
+        bmp_param = eval(req.body)
+        result = self.startBmp(int(dpid, 16), bmp_param)
+
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+
+    @route('router', '/openflow/{dpid}/bmp', methods=['DELETE'], requirements={'dpid': dpid.DPID_PATTERN})
+    def stop_bmp(self, req, dpid, **kwargs):
+
+        bmp_param = eval(req.body)
+        result = self.stopBmp(int(dpid, 16), bmp_param)
 
         message = json.dumps(result)
         return Response(status=200,
@@ -400,7 +438,7 @@ class RouterController(ControllerBase):
                         body = message)
 
 
-    def setBgp(self, dpid, bgp_param):
+    def startBgp(self, dpid, bgp_param):
         simpleRouter = self.router_spp
         as_number = bgp_param['bgp']['as_number']
         router_id = bgp_param['bgp']['router_id']
@@ -412,6 +450,38 @@ class RouterController(ControllerBase):
             'bgp': {
                 'as_number': '%s' % as_number,
                 'router_id': '%s' % router_id,
+            }
+        }
+
+
+    def startBmp(self, dpid, bmp_param):
+        simpleRouter = self.router_spp
+        address = bmp_param['bmp']['address']
+        port = bmp_param['bmp']['port']
+
+        simpleRouter.start_bmpclient(dpid, address, port)
+
+        return {
+            'id': '%016d' % dpid,
+            'bmp': {
+                'address': '%s' % address,
+                'port': '%s' % port,
+            }
+        }
+
+
+    def stopBmp(self, dpid, bmp_param):
+        simpleRouter = self.router_spp
+        address = bmp_param['bmp']['address']
+        port = bmp_param['bmp']['port']
+
+        simpleRouter.stop_bmpclient(dpid, address, port)
+
+        return {
+            'id': '%016d' % dpid,
+            'bmp': {
+                'address': '%s' % address,
+                'port': '%s' % port,
             }
         }
 

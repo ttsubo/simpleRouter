@@ -526,3 +526,49 @@ These scripts are useful for checking simpleRouter as bellow.
 	2014/12/23 16:29:17  Peer Down 10.0.1.1           10.0.0.1           65001
 	2014/12/23 16:30:00  Peer Up   10.0.1.1           10.0.0.1           65001
 
+
+### STEP5: starting BMP(BGP Monitoring Protocol)
+You can start BMP client/server.  
+
+(1) Configure BMP Information through RESTful as follows  
+    Caution: the dpid is fixed value as "0000000000000001"
+
+	$ curl -s -X POST -d '{"bmp": {"port": "11019", "address": "192.168.0.100"}}' http://localhost:8080/openflow/0000000000000001/bmp | python -mjson.tool
+
+you will catch http response as bellow
+
+        {
+            "bmp": {
+                "port": "11019", 
+                "address": "192.168.0.100"
+            }, 
+            "id": "0000000000000001"
+        }
+
+(2) Starting BMP Server 
+
+	$ cd simpleRouter/other/
+	$ python sample_bmpServer.py
+
+        Start BMP session!! [192.168.0.101]
+        192.168.0.101 | 2014/12/28 07:48:59 65001 10.0.0.1 | BGP_PeerUp
+        192.168.0.101 | 2014/12/28 07:49:00 65001 10.0.0.1 | BGP_Update(add_prefix:192.168.0.0/24    , nexthop:192.168.201.101)
+        192.168.0.101 | 2014/12/28 07:49:00 65001 10.0.0.1 | BGP_Update(add_prefix:10.0.0.1/32       , nexthop:192.168.201.101)
+        192.168.0.101 | 2014/12/28 07:49:00 65001 10.0.0.1 | BGP_Update(add_prefix:172.16.101.0/24   , nexthop:192.168.201.101)
+        192.168.0.101 | 2014/12/28 07:49:00 65001 10.0.0.1 | BGP_Update(add_prefix:192.168.201.0/24  , nexthop:192.168.201.101)
+        192.168.0.101 | 2014/12/28 07:49:00 65001 10.0.0.1 | BGP_Update(add_prefix:172.16.104.0/24   , nexthop:192.168.201.101)
+        192.168.0.101 | 2014/12/28 07:49:00 65001 10.0.0.1 | BGP_Update(add_prefix:172.16.102.0/24   , nexthop:192.168.201.101)
+        192.168.0.101 | 2014/12/28 07:49:00 65001 10.0.0.1 | BGP_Update(add_prefix:192.168.202.0/24  , nexthop:192.168.201.101)
+        192.168.0.101 | 2014/12/28 07:49:00 65001 10.0.0.1 | BGP_Update(add_prefix:0.0.0.0/0         , nexthop:192.168.201.101)
+        192.168.0.101 | 2014/12/28 07:49:00 65001 10.0.0.1 | BGP_Update(add_prefix:172.16.103.0/24   , nexthop:192.168.201.101)
+        192.168.0.101 | 2014/12/28 07:49:00 65001 10.0.0.1 | BGP_Update(add_prefix:192.168.100.0/24  , nexthop:192.168.201.101)
+        192.168.0.101 | 2014/12/28 07:49:00 65001 10.0.0.1 | BGP_Update(add_prefix:10.0.0.2/32       , nexthop:192.168.201.101)
+        192.168.0.101 | 2014/12/28 07:49:04 65002 10.0.1.3 | BGP_PeerUp
+        192.168.0.101 | 2014/12/28 07:49:05 65002 10.0.1.3 | BGP_Update(add_prefix:192.168.0.0/24    , nexthop:172.16.201.101 )
+        192.168.0.101 | 2014/12/28 07:49:05 65002 10.0.1.3 | BGP_Update(add_prefix:172.16.202.0/24   , nexthop:172.16.201.101 )
+        192.168.0.101 | 2014/12/28 07:49:05 65002 10.0.1.3 | BGP_Update(add_prefix:10.0.1.3/32       , nexthop:172.16.201.101 )
+        192.168.0.101 | 2014/12/28 07:49:05 65002 10.0.1.3 | BGP_Update(add_prefix:172.16.201.0/24   , nexthop:172.16.201.101 )
+        192.168.0.101 | 2014/12/28 07:49:05 65002 10.0.1.3 | BGP_Update(add_prefix:192.168.101.0/24  , nexthop:172.16.201.101 )
+        192.168.0.101 | 2014/12/28 07:49:05 65002 10.0.1.3 | BGP_Update(add_prefix:172.16.205.0/24   , nexthop:172.16.201.101 )
+
+

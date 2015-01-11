@@ -162,6 +162,15 @@ class OpenflowRouter(SimpleRouter):
         self.bgps.stop_bmpclient(address, portNum)
 
 
+    def register_vrf(self, dpid, routeDist, importRt, exportRt):
+        importList = []
+        exportList = []
+        importList.append(importRt)
+        exportList.append(exportRt)
+        LOG.debug("Register vrf(RD:%s)"%routeDist)
+        self.bgps.add_vrf(routeDist, importList, exportList)
+
+
     def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, asNumber, Port, bgpPort, med, localPref, filterAsNumber):
         LOG.debug("Register Interface(port%s)"% Port)
         datapath = self.monitor.datapaths[dpid]
@@ -469,6 +478,18 @@ class RouterController(ControllerBase):
                         body = message)
 
 
+    @route('router', '/openflow/{dpid}/vrf', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
+    def set_vrf(self, req, dpid, **kwargs):
+
+        vrf_param = eval(req.body)
+        result = self.setVrf(int(dpid, 16), vrf_param)
+
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+
     @route('router', '/openflow/{dpid}/interface', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
     def set_interface(self, req, dpid, **kwargs):
 
@@ -572,6 +593,24 @@ class RouterController(ControllerBase):
             'bmp': {
                 'address': '%s' % address,
                 'port': '%s' % port,
+            }
+        }
+
+
+    def setVrf(self, dpid, vrf_param):
+        simpleRouter = self.router_spp
+        routeDist = vrf_param['vrf']['route_dist']
+        importRt = vrf_param['vrf']['import']
+        exportRt = vrf_param['vrf']['export']
+
+        simpleRouter.register_vrf(dpid, routeDist, importRt, exportRt)
+
+        return {
+            'id': '%016d' % dpid,
+            'vrf': {
+                'route_dist': '%s' % routeDist,
+                'import': '%s' % importRt,
+                'export': '%s' % exportRt,
             }
         }
 

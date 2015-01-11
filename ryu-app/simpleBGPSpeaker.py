@@ -85,7 +85,6 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
                      best_path_change_handler=self.dump_remote_best_path_change,
                      peer_down_handler=self.detect_peer_down,
                      peer_up_handler=self.detect_peer_up)
-        self.speaker.vrf_add('65010:101', ['65010:101'], ['65010:101'])
 
 
     def start_bmpclient(self, address, port):
@@ -108,6 +107,10 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
                                              localPref)
                 self.speaker.attribute_map_set(peerIp, [attribute_map],
                                                route_family='ipv4')
+
+
+    def add_vrf(self, routeDist, importList, exportList):
+        self.speaker.vrf_add(routeDist, importList, exportList)
 
 
     def add_prefix(self, ipaddress, netmask, nexthop=None, routeDist=None):

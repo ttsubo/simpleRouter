@@ -1,7 +1,7 @@
-What's simpleRouter
+What's simpleRouter for Vpnv4
 ==========
-simpleRouter is a software router based Ryu SDN Framework.  
-It works as a openflow controller supporting bgp in the LinuxBox. 
+simpleRouter for Vpnv4 is a software router based Ryu SDN Framework.  
+It works as a openflow controller supporting mp-bgp in the LinuxBox. 
 
 
 Installation
@@ -177,7 +177,7 @@ You should assign physical ports as following.
 	$ sudo ovs-vsctl add-port br0 eth1
 	$ sudo ovs-vsctl add-port br0 eth2
 	$ sudo ovs-vsctl add-port br0 eth3
-	$ sudo ovs-vsctl set-controller br0 tcp:127.0.0.1:6653
+	$ sudo ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
 	$ sudo ovs-vsctl set bridge br0 other-config:datapath-id=0000000000000001
 	$ sudo ovs-vsctl set bridge br0 protocols=OpenFlow13
 	$ sudo ovs-vsctl set-fail-mode br0 secure
@@ -283,7 +283,7 @@ You should assign internal ports as following.
 (1) You can Start simpleRouter.
 
 	$ cd simpleRouter-0.3/ryu-app/
-	$ sudo ryu-manager openflowRouter.py
+	$ sudo ryu-manager --log-config-file logging.conf openflowRouter.py
 
 
 (2) Configure BGP Information through RESTful as follows  
@@ -302,7 +302,23 @@ you will catch http response as bellow
 	}
 
 
-(3) Configure Port Information through RESTful as follows  
+(3) Configure Vrf Information through RESTful as follows  
+
+	$ curl -s -X POST -d '{"vrf": {"route_dist": "65010:101", "import": "65010:101", "export": "65010:101"}}' http://localhost:8080/openflow/0000000000000001/vrf | python -mjson.tool
+
+you will catch http response as bellow
+
+        {
+            "id": "0000000000000001", 
+            "vrf": {
+                "import": "65010:101", 
+                "export": "65010:101", 
+                "route_dist": "65010:101"
+            }
+        }
+
+
+(4) Configure Port Information through RESTful as follows  
     Caution: If you don't want to use as bgp port, you must configure port_offload_bgp as blank""
 
 	$ curl -s -X POST -d '{"interface": {"port": "1", "macaddress": "e6:56:ea:af:3e:e8", "ipaddress": "192.168.201.101", "netmask": "255.255.255.0", "opposite_ipaddress": "192.168.201.1", "opposite_asnumber": "65001", "port_offload_bgp": "4", "bgp_med": "100", "bgp_local_pref": "", "bgp_filter_asnumber": ""}}' http://localhost:8080/openflow/0000000000000001/interface | python -mjson.tool
@@ -325,7 +341,7 @@ you will catch http response as bellow
 	    }
 	}
 
-(4) Configure Static Routing Information through RESTful as follows  
+(5) Configure Static Routing Information through RESTful as follows  
     Caution: When "nexthop" isn't available, you will fail to configure it  
     In case of failure, you should check Arp Information as bellow
 
@@ -343,7 +359,7 @@ you will catch http response as bellow
 	}
 
 
-(5) Configure "Redistribute connect" Information through RESTful as follows, if you need  
+(6) Configure "Redistribute connect" Information through RESTful as follows, if you need  
 
 	$ curl -s -X POST -d '{"bgp": {"redistribute": "ON"}}' http://localhost:8080/openflow/0000000000000001/redistribute | python -mjson.tool
 

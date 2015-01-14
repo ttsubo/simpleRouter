@@ -1,4 +1,4 @@
-# Copyright (c) 2014 ttsubo
+# Copyright (c) 2014-2015 ttsubo
 # This software is released under the MIT License.
 # http://opensource.org/licenses/mit-license.php
 
@@ -113,6 +113,10 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         self.speaker.vrf_add(routeDist, importList, exportList)
 
 
+    def del_vrf(self, routeDist):
+        self.speaker.vrf_del(routeDist)
+
+
     def add_prefix(self, ipaddress, netmask, nexthop=None, routeDist=None):
         prefix = IPNetwork(ipaddress + '/' + netmask)
         local_prefix = str(prefix.cidr)
@@ -151,3 +155,8 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         family ="ipv4"
         format = "cli"
         return self.speaker.rib_get(family, format)
+
+
+    def show_vrfs(self):
+        format = "cli"
+        return self.speaker.vrfs_get(format)

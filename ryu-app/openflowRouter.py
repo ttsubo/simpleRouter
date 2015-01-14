@@ -1,4 +1,4 @@
-# Copyright (c) 2014 ttsubo
+# Copyright (c) 2014-2015 ttsubo
 # This software is released under the MIT License.
 # http://opensource.org/licenses/mit-license.php
 
@@ -53,6 +53,10 @@ class OpenflowRouter(SimpleRouter):
 
     def get_bgp_rib(self):
         return self.bgps.show_rib()
+
+
+    def get_bgp_vrfs(self):
+        return self.bgps.show_vrfs()
 
 
     def redistribute_connect(self, dpid, redistribute, routeDist='65010:101'):
@@ -169,6 +173,11 @@ class OpenflowRouter(SimpleRouter):
         exportList.append(exportRt)
         LOG.debug("Register vrf(RD:%s)"%routeDist)
         self.bgps.add_vrf(routeDist, importList, exportList)
+
+
+    def delete_vrf(self, dpid, routeDist):
+        LOG.debug("Delete vrf(RD:%s)"%routeDist)
+        self.bgps.del_vrf(routeDist)
 
 
     def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, asNumber, Port, bgpPort, med, localPref, filterAsNumber):
@@ -361,9 +370,9 @@ class RouterController(ControllerBase):
         super(RouterController, self).__init__(req, link, data, **config)
         self.router_spp = data['OpenFlowRouter']
 
+
     @route('router', '/openflow/{dpid}/interface', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
     def get_interface(self, req, dpid, **kwargs):
-
         result = self.getInterface(int(dpid, 16))
         message = json.dumps(result)
         return Response(status=200,
@@ -373,7 +382,6 @@ class RouterController(ControllerBase):
 
     @route('router', '/openflow/{dpid}/arp', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
     def get_arp(self, req, dpid, **kwargs):
-
         result = self.getArp(int(dpid, 16))
         message = json.dumps(result)
         return Response(status=200,
@@ -383,7 +391,6 @@ class RouterController(ControllerBase):
 
     @route('router', '/openflow/{dpid}/route', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
     def get_route(self, req, dpid, **kwargs):
-
         result = self.getRoute(int(dpid, 16))
         message = json.dumps(result)
         return Response(status=200,
@@ -393,8 +400,16 @@ class RouterController(ControllerBase):
 
     @route('router', '/openflow/{dpid}/stats/port', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
     def get_portstats(self, req, dpid, **kwargs):
-
         result = self.getPortStats(int(dpid, 16))
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+
+    @route('router', '/openflow/{dpid}/vrf', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
+    def get_bgpvrfs(self, req, dpid, **kwargs):
+        result = self.getBgpVrfs(int(dpid, 16))
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -403,7 +418,6 @@ class RouterController(ControllerBase):
 
     @route('router', '/openflow/{dpid}/rib', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
     def get_bgprib(self, req, dpid, **kwargs):
-
         result = self.getBgpRib(int(dpid, 16))
         message = json.dumps(result)
         return Response(status=200,
@@ -413,7 +427,6 @@ class RouterController(ControllerBase):
 
     @route('router', '/openflow/{dpid}/stats/flow', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
     def get_flowstats(self, req, dpid, **kwargs):
-
         result = self.getFlowStats(int(dpid, 16))
         message = json.dumps(result)
         return Response(status=200,
@@ -423,7 +436,6 @@ class RouterController(ControllerBase):
 
     @route('router', '/openflow/{dpid}/status/peer', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
     def get_peerstatus(self, req, dpid, **kwargs):
-
         result = self.getPeerStatus(int(dpid, 16))
         message = json.dumps(result)
         return Response(status=200,
@@ -435,7 +447,6 @@ class RouterController(ControllerBase):
     def put_ping(self, req, dpid, **kwargs):
         ping_param = eval(req.body)
         result = self.putIcmp(int(dpid, 16), ping_param)
-
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -444,10 +455,8 @@ class RouterController(ControllerBase):
 
     @route('router', '/openflow/{dpid}/bgp', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
     def start_bgp(self, req, dpid, **kwargs):
-
         bgp_param = eval(req.body)
         result = self.startBgp(int(dpid, 16), bgp_param)
-
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -456,10 +465,8 @@ class RouterController(ControllerBase):
 
     @route('router', '/openflow/{dpid}/bmp', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
     def start_bmp(self, req, dpid, **kwargs):
-
         bmp_param = eval(req.body)
         result = self.startBmp(int(dpid, 16), bmp_param)
-
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -468,10 +475,8 @@ class RouterController(ControllerBase):
 
     @route('router', '/openflow/{dpid}/bmp', methods=['DELETE'], requirements={'dpid': dpid.DPID_PATTERN})
     def stop_bmp(self, req, dpid, **kwargs):
-
         bmp_param = eval(req.body)
         result = self.stopBmp(int(dpid, 16), bmp_param)
-
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -479,11 +484,19 @@ class RouterController(ControllerBase):
 
 
     @route('router', '/openflow/{dpid}/vrf', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
-    def set_vrf(self, req, dpid, **kwargs):
-
+    def create_vrf(self, req, dpid, **kwargs):
         vrf_param = eval(req.body)
-        result = self.setVrf(int(dpid, 16), vrf_param)
+        result = self.createVrf(int(dpid, 16), vrf_param)
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
 
+
+    @route('router', '/openflow/{dpid}/vrf', methods=['DELETE'], requirements={'dpid': dpid.DPID_PATTERN})
+    def delete_vrf(self, req, dpid, **kwargs):
+        vrf_param = eval(req.body)
+        result = self.deleteVrf(int(dpid, 16), vrf_param)
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -492,10 +505,8 @@ class RouterController(ControllerBase):
 
     @route('router', '/openflow/{dpid}/interface', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
     def set_interface(self, req, dpid, **kwargs):
-
         interface_param = eval(req.body)
         result = self.setInterface(int(dpid, 16), interface_param)
-
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -504,10 +515,8 @@ class RouterController(ControllerBase):
 
     @route('router', '/openflow/{dpid}/gateway', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
     def set_gateway(self, req, dpid, **kwargs):
-
         gateway_param = eval(req.body)
         result = self.setGateway(int(dpid, 16), gateway_param)
-
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -515,22 +524,9 @@ class RouterController(ControllerBase):
 
 
     @route('router', '/openflow/{dpid}/route', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
-    def set_route(self, req, dpid, **kwargs):
-
+    def create_route(self, req, dpid, **kwargs):
         route_param = eval(req.body)
-        result = self.setRoute(int(dpid, 16), route_param)
-
-        message = json.dumps(result)
-        return Response(status=200,
-                        content_type = 'application/json',
-                        body = message)
-
-    @route('router', '/openflow/{dpid}/redistribute', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
-    def set_redistributeConnect(self, req, dpid, **kwargs):
-
-        connect_param = eval(req.body)
-        result = self.redistributeConnect(int(dpid, 16), connect_param)
-
+        result = self.createRoute(int(dpid, 16), route_param)
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -539,10 +535,18 @@ class RouterController(ControllerBase):
 
     @route('router', '/openflow/{dpid}/route', methods=['DELETE'], requirements={'dpid': dpid.DPID_PATTERN})
     def delete_route(self, req, dpid, **kwargs):
-
         route_param = eval(req.body)
-        result = self.delRoute(int(dpid, 16), route_param)
+        result = self.deleteRoute(int(dpid, 16), route_param)
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
 
+
+    @route('router', '/openflow/{dpid}/redistribute', methods=['POST'], requirements={'dpid': dpid.DPID_PATTERN})
+    def set_redistributeConnect(self, req, dpid, **kwargs):
+        connect_param = eval(req.body)
+        result = self.redistributeConnect(int(dpid, 16), connect_param)
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -553,9 +557,7 @@ class RouterController(ControllerBase):
         simpleRouter = self.router_spp
         as_number = bgp_param['bgp']['as_number']
         router_id = bgp_param['bgp']['router_id']
-
         simpleRouter.start_bgpspeaker(dpid, as_number, router_id)
-
         return {
             'id': '%016d' % dpid,
             'bgp': {
@@ -569,9 +571,7 @@ class RouterController(ControllerBase):
         simpleRouter = self.router_spp
         address = bmp_param['bmp']['address']
         port = bmp_param['bmp']['port']
-
         simpleRouter.start_bmpclient(dpid, address, port)
-
         return {
             'id': '%016d' % dpid,
             'bmp': {
@@ -585,9 +585,7 @@ class RouterController(ControllerBase):
         simpleRouter = self.router_spp
         address = bmp_param['bmp']['address']
         port = bmp_param['bmp']['port']
-
         simpleRouter.stop_bmpclient(dpid, address, port)
-
         return {
             'id': '%016d' % dpid,
             'bmp': {
@@ -597,20 +595,30 @@ class RouterController(ControllerBase):
         }
 
 
-    def setVrf(self, dpid, vrf_param):
+    def createVrf(self, dpid, vrf_param):
         simpleRouter = self.router_spp
         routeDist = vrf_param['vrf']['route_dist']
         importRt = vrf_param['vrf']['import']
         exportRt = vrf_param['vrf']['export']
-
         simpleRouter.register_vrf(dpid, routeDist, importRt, exportRt)
-
         return {
             'id': '%016d' % dpid,
             'vrf': {
                 'route_dist': '%s' % routeDist,
                 'import': '%s' % importRt,
                 'export': '%s' % exportRt,
+            }
+        }
+
+
+    def deleteVrf(self, dpid, vrf_param):
+        simpleRouter = self.router_spp
+        routeDist = vrf_param['vrf']['route_dist']
+        simpleRouter.delete_vrf(dpid, routeDist)
+        return {
+            'id': '%016d' % dpid,
+            'vrf': {
+                'route_dist': '%s' % routeDist
             }
         }
 
@@ -627,10 +635,7 @@ class RouterController(ControllerBase):
         bgp_med = interface_param['interface']['bgp_med']
         bgp_local_pref = interface_param['interface']['bgp_local_pref']
         filterAsNumber = interface_param['interface']['bgp_filter_asnumber']
-
-
         simpleRouter.register_inf(dpid, routerIp, netMask, routerMac, hostIp, asNumber, port, port_offload_bgp, bgp_med, bgp_local_pref, filterAsNumber)
-
         return {
             'id': '%016d' % dpid,
             'interface': {
@@ -651,9 +656,7 @@ class RouterController(ControllerBase):
     def setGateway(self, dpid, gateway_param):
         simpleRouter = self.router_spp
         defaultIp = gateway_param['gateway']['ipaddress']
-
         simpleRouter.register_gateway(dpid, defaultIp)
-
         return {
             'id': '%016d' % dpid,
             'gateway': {
@@ -662,14 +665,12 @@ class RouterController(ControllerBase):
         }
 
 
-    def setRoute(self, dpid, route_param):
+    def createRoute(self, dpid, route_param):
         simpleRouter = self.router_spp
         destinationIp = route_param['route']['destination']
         netMask = route_param['route']['netmask']
         nexthopIp = route_param['route']['nexthop']
-
         simpleRouter.register_localPrefix(dpid, destinationIp, netMask, nexthopIp)
-
         return {
             'id': '%016d' % dpid,
             'route': {
@@ -680,32 +681,29 @@ class RouterController(ControllerBase):
         }
 
 
-    def redistributeConnect(self, dpid, connect_param):
-        simpleRouter = self.router_spp
-        redistribute = connect_param['bgp']['redistribute']
 
-        simpleRouter.redistribute_connect(dpid, redistribute)
-
-        return {
-            'id': '%016d' % dpid,
-            'bgp': {
-                'redistribute': '%s' % redistribute,
-            }
-        }
-
-
-    def delRoute(self, dpid, route_param):
+    def deleteRoute(self, dpid, route_param):
         simpleRouter = self.router_spp
         destinationIp = route_param['route']['destination']
         netMask = route_param['route']['netmask']
-
         simpleRouter.delete_localPrefix(dpid, destinationIp, netMask)
-
         return {
             'id': '%016d' % dpid,
             'route': {
                 'destination': '%s' % destinationIp,
                 'netmask': '%s' % netMask,
+            }
+        }
+
+
+    def redistributeConnect(self, dpid, connect_param):
+        simpleRouter = self.router_spp
+        redistribute = connect_param['bgp']['redistribute']
+        simpleRouter.redistribute_connect(dpid, redistribute)
+        return {
+            'id': '%016d' % dpid,
+            'bgp': {
+                'redistribute': '%s' % redistribute,
             }
         }
 
@@ -716,7 +714,6 @@ class RouterController(ControllerBase):
         hostIp = ping_param['ping']['hostIp']
         outPort = ping_param['ping']['outPort']
         data = ping_param['ping']['data']
-
         result[0] = "PING %s : %d data bytes" % (hostIp, len(data))
         for seq in range(1,6):
             ret = simpleRouter.send_ping(dpid, hostIp, seq, data, int(outPort))
@@ -728,7 +725,6 @@ class RouterController(ControllerBase):
                     time.sleep(1)
             else:
                 result[seq] = "ping ng ( Request Timeout for icmp_seq %d )" %seq
-
         if result:
             return {
                'id': '%016d' % dpid,
@@ -738,18 +734,15 @@ class RouterController(ControllerBase):
 
     def getInterface(self, dpid):
         simpleRouter = self.router_spp
-
         nowtime = datetime.datetime.now()
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("%s : PortTable" % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("portNo   IpAddress       MacAddress")
         LOG.info("-------- --------------- -----------------")
-
         for k, v in sorted(simpleRouter.portInfo.items()):
             (routerIpAddr, routerMacAddr, routerPort) = v.get_all()
             LOG.info("%8x %-15s %s" % (routerPort, routerIpAddr, routerMacAddr))
-
         return {
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
@@ -761,18 +754,15 @@ class RouterController(ControllerBase):
 
     def getArp(self, dpid):
         simpleRouter = self.router_spp
-
         nowtime = datetime.datetime.now()
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("%s : ArpTable " % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("portNo   MacAddress        IpAddress")
         LOG.info("-------- ----------------- ------------")
-
         for k, v in sorted(simpleRouter.arpInfo.items()):
             (hostIpAddr, hostMacAddr, routerPort) = v.get_all()
             LOG.info("%8x %s %s" % (routerPort, hostMacAddr, hostIpAddr))
-
         return {
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
@@ -784,18 +774,15 @@ class RouterController(ControllerBase):
 
     def getRoute(self, dpid):
         simpleRouter = self.router_spp
-
         nowtime = datetime.datetime.now()
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("%s : RoutingTable " % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("prefix             nexthop")
         LOG.info("------------------ ---------------")
-
         for k, v in sorted(simpleRouter.routingInfo.items()):
             (prefix, nextHopIpAddr) = v.get_route()
             LOG.info("%-18s %-15s" % (prefix, nextHopIpAddr))
-
         return {
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
@@ -805,17 +792,29 @@ class RouterController(ControllerBase):
         }
 
 
+    def getBgpVrfs(self, dpid):
+        simpleRouter = self.router_spp
+        nowtime = datetime.datetime.now()
+        LOG.info("+++++++++++++++++++++++++++++++")
+        LOG.info("%s : Show vrf " % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
+        LOG.info("+++++++++++++++++++++++++++++++")
+        result = simpleRouter.get_bgp_vrfs()
+        LOG.info("%s" % result)
+        return {
+          'id': '%016d' % dpid,
+          'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
+          'vrfs': '%s' % result,
+        }
+
+
     def getBgpRib(self, dpid):
         simpleRouter = self.router_spp
-
         nowtime = datetime.datetime.now()
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("%s : Show rib " % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
         LOG.info("+++++++++++++++++++++++++++++++")
-
         result = simpleRouter.get_bgp_rib()
         LOG.info("%s" % result)
-
         return {
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
@@ -826,14 +825,12 @@ class RouterController(ControllerBase):
 
     def getPortStats(self, dpid):
         simpleRouter = self.router_spp
-
         nowtime = datetime.datetime.now()
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("%s : PortStats" % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("portNo   rxPackets rxBytes  rxErrors txPackets txBytes  txErrors")
         LOG.info("-------- --------- -------- -------- --------- -------- --------")
-
         for k, v in sorted(simpleRouter.monitor.portStats.items()):
             (portNo, rxPackets, rxBytes, rxErrors) = v.getPort("rx")
             (portNo, txPackets, txBytes, txErrors) = v.getPort("tx")
@@ -851,14 +848,12 @@ class RouterController(ControllerBase):
 
     def getFlowStats(self, dpid):
         simpleRouter = self.router_spp
-
         nowtime = datetime.datetime.now()
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("%s : FlowStats" % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("destination        packets    bytes")
         LOG.info("------------------ ---------- ----------")
-
         for k, v in sorted(simpleRouter.monitor.flowStats.items()):
             (ipv4Dst, packets, bytes) = v.getFlow()
             LOG.info("%-18s %10d %10d" % (ipv4Dst, packets, bytes))
@@ -873,14 +868,12 @@ class RouterController(ControllerBase):
 
     def getPeerStatus(self, dpid):
         simpleRouter = self.router_spp
-
         nowtime = datetime.datetime.now()
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("%s : Peer Status " % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("occurTime            status    myPeer             remotePeer         asNumber")
         LOG.info("-------------------- --------- ------------------ ------------------ --------")
-
         for k, v in sorted(simpleRouter.bgps.bgpPeerStatus.items()):
             (occurTime, status, myPeer, remotePeer, asNumber) = v.getStatus()
             LOG.info("%s  %-9s %-18s %-18s %s" % (occurTime, status, myPeer,

@@ -31,17 +31,17 @@ logging.basicConfig()
 
 
 class PortTable(object):
-    def __init__(self, routerPort, routerIpAddr, routerMacAddr):
+    def __init__(self, routerPort, routerIpAddr, routerMacAddr, routeDist):
         self.routerPort = routerPort
         self.routerIpAddr = routerIpAddr
         self.routerMacAddr = routerMacAddr
+        self.routeDist = routeDist
 
     def get_ip(self):
         return self.routerIpAddr
 
     def get_all(self):
-        return self.routerIpAddr, self.routerMacAddr, self.routerPort
-
+        return self.routerIpAddr, self.routerMacAddr, self.routerPort, self.routeDist
 
 class ArpTable(object):
     def __init__(self, hostIpAddr, hostMacAddr, routerPort):
@@ -270,7 +270,7 @@ class SimpleRouter(app_manager.RyuApp):
         dstMac = etherFrame.src
 
         for portNo, port in self.portInfo.items():
-            (routerIpAddr, routerMacAddr, routerPort) = port.get_all()
+            (routerIpAddr, routerMacAddr, routerPort, routeDist) = port.get_all()
             if arp_dstIp == routerIpAddr:
                 srcMac = routerMacAddr
                 outPort = portNo
@@ -308,9 +308,9 @@ class SimpleRouter(app_manager.RyuApp):
         return 0
 
 
-    def send_arp(self, datapath, opcode, srcMac, srcIp, dstMac, dstIp, outPort):
+    def send_arp(self, datapath, opcode, srcMac, srcIp, dstMac, dstIp, outPort, RouteDist=None):
         if opcode == 1:
-            self.portInfo[outPort] = PortTable(outPort, srcIp, srcMac)
+            self.portInfo[outPort] = PortTable(outPort, srcIp, srcMac, RouteDist)
 
             targetMac = "00:00:00:00:00:00"
             targetIp = dstIp
@@ -408,8 +408,7 @@ class SimpleRouter(app_manager.RyuApp):
                 mpls_label=label)
         actions =[datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
                 datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
-                datapath.ofproto_parser.OFPActionOutput(outPort, 0),
-                datapath.ofproto_parser.OFPActionDecNwTtl()]
+                datapath.ofproto_parser.OFPActionOutput(outPort, 0)]
         inst = [datapath.ofproto_parser.OFPInstructionActions(
                 datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
         mod = datapath.ofproto_parser.OFPFlowMod(
@@ -447,8 +446,7 @@ class SimpleRouter(app_manager.RyuApp):
                 datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
                 datapath.ofproto_parser.OFPActionSetField(mpls_label=label),
                 datapath.ofproto_parser.OFPActionSetField(mpls_tc=1),
-                datapath.ofproto_parser.OFPActionOutput(outPort, 0),
-                datapath.ofproto_parser.OFPActionDecNwTtl()]
+                datapath.ofproto_parser.OFPActionOutput(outPort, 0)]
         inst = [datapath.ofproto_parser.OFPInstructionActions(
                 datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
         mod = datapath.ofproto_parser.OFPFlowMod(
@@ -484,8 +482,7 @@ class SimpleRouter(app_manager.RyuApp):
         actions =[datapath.ofproto_parser.OFPActionPopMpls(ethertype),
                 datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
                 datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
-                datapath.ofproto_parser.OFPActionOutput(outPort, 0),
-                datapath.ofproto_parser.OFPActionDecNwTtl()]
+                datapath.ofproto_parser.OFPActionOutput(outPort, 0)]
         inst = [datapath.ofproto_parser.OFPInstructionActions(
                 datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
         mod = datapath.ofproto_parser.OFPFlowMod(
@@ -496,7 +493,7 @@ class SimpleRouter(app_manager.RyuApp):
                 datapath=datapath,
                 idle_timeout=0,
                 hard_timeout=0,
-                priority=0xf,
+                priority=0xff,
                 buffer_id=0xffffffff,
                 out_port=datapath.ofproto.OFPP_ANY,
                 out_group=datapath.ofproto.OFPG_ANY,

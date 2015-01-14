@@ -9,6 +9,8 @@ redistribute_opts = []
 
 redistribute_opts.append(cfg.StrOpt('redistribute', default=[],
                          help='redistribute'))
+redistribute_opts.append(cfg.StrOpt('vrf_routeDist', default=[],
+                         help='vrf_routeDist'))
 
 
 CONF = cfg.CONF
@@ -18,16 +20,17 @@ CONF.register_cli_opts(redistribute_opts, 'Bgp')
 # set_redistribute
 ##################
 
-def start_set_redistribute(dpid, redistribute):
+def start_set_redistribute(dpid, redistribute, vrf_routeDist):
     operation = "set_redistribute"
     url_path = "/openflow/" + dpid + "/redistribute"
     method = "POST"
     request = '''
 {
 "bgp": {
-"redistribute": "%s"
+"redistribute": "%s",
+"vrf_routeDist": "%s"
 }
-}'''%redistribute
+}'''%(redistribute, vrf_routeDist)
 
     redistribute_result = request_info(operation, url_path, method, request)
     print "----------"
@@ -45,10 +48,11 @@ def main():
     try:
         CONF(default_config_files=['OpenFlow.ini'])
         redistribute = CONF.Bgp.redistribute
+        vrf_routeDist = CONF.Bgp.vrf_routeDist
     except cfg.ConfigFilesNotFoundError:
         print "Error: Not Found <OpenFlow.ini> "
 
-    start_set_redistribute(dpid, redistribute)
+    start_set_redistribute(dpid, redistribute, vrf_routeDist)
 
 if __name__ == "__main__":
     main()

@@ -59,7 +59,7 @@ class OpenflowRouter(SimpleRouter):
         return self.bgps.show_vrfs()
 
 
-    def redistribute_connect(self, dpid, redistribute, routeDist='65010:101'):
+    def redistribute_connect(self, dpid, redistribute, vrf_routeDist):
         netMask = "255.255.255.255"
         nextHopIpAddr = None
         if redistribute == "ON":
@@ -68,33 +68,27 @@ class OpenflowRouter(SimpleRouter):
             else:
                 self.redistributeConnect = True
                 for portNo, port in self.portInfo.items():
-                    (routerIpAddr, routerMacAddr, routerPort1) = port.get_all()
-                    for arp in self.arpInfo.values():
-                        (hostIpAddr, hostMacAddr, routerPort2) = arp.get_all()
-                        if routerPort1 == routerPort2:
-                            destIpAddr = hostIpAddr
-                            if routeDist:
-                                label = self.bgps.add_prefix(destIpAddr,netMask
-                                                    , None, routeDist)
-                                self.register_route_pop_mpls(dpid, routeDist,
-                                                    destIpAddr, netMask, label,
-                                                    nextHopIpAddr)
-                            else:
-                                self.register_route(dpid, destIpAddr, netMask,
-                                                    nextHopIpAddr)
-                                self.bgps.add_prefix(destIpAddr, netMask)
-
+                    (routerIpAddr, routerMacAddr, routerPort1, routeDist) = port.get_all()
+                    if vrf_routeDist == routeDist:
+                        for arp in self.arpInfo.values():
+                            (hostIpAddr, hostMacAddr, routerPort2) = arp.get_all()
+                            if routerPort1 == routerPort2:
+                                destIpAddr = hostIpAddr
+                                label = self.bgps.add_prefix(destIpAddr, netMask, None, routeDist)
+                                self.register_route_pop_mpls(dpid, routeDist, destIpAddr,
+                                                             netMask, label, nextHopIpAddr)
         elif redistribute == "OFF":
             if self.redistributeConnect:
                 self.redistributeConnect = False
                 for portNo, port in self.portInfo.items():
-                    (routerIpAddr, routerMacAddr, routerPort1) = port.get_all()
-                    for arp in self.arpInfo.values():
-                        (hostIpAddr, hostMacAddr, routerPort2) = arp.get_all()
-                        if routerPort1 == routerPort2:
-                            destIpAddr = hostIpAddr
-                            self.remove_route(dpid, destIpAddr, netMask)
-                            self.bgps.remove_prefix(destIpAddr, netMask)
+                    (routerIpAddr, routerMacAddr, routerPort1, routeDist) = port.get_all()
+                    if vrf_routeDist == routeDist:
+                        for arp in self.arpInfo.values():
+                            (hostIpAddr, hostMacAddr, routerPort2) = arp.get_all()
+                            if routerPort1 == routerPort2:
+                                destIpAddr = hostIpAddr
+                                self.bgps.remove_prefix(destIpAddr, netMask, routeDist)
+                                self.remove_route(dpid, destIpAddr, netMask)
             else:
                 LOG.info("Skip redistributeConnect[OFF]")
 
@@ -180,12 +174,12 @@ class OpenflowRouter(SimpleRouter):
         self.bgps.del_vrf(routeDist)
 
 
-    def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, asNumber, Port, bgpPort, med, localPref, filterAsNumber):
+    def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, asNumber, Port, bgpPort, med, localPref, filterAsNumber, vrf_routeDist):
         LOG.debug("Register Interface(port%s)"% Port)
         datapath = self.monitor.datapaths[dpid]
         outPort = int(Port)
         self.send_arp(datapath, 1, routerMac, routerIp, "ff:ff:ff:ff:ff:ff",
-                      hostIp, outPort)
+                      hostIp, outPort, vrf_routeDist)
         LOG.debug("send ARP request %s => %s (port%d)"
                  %(routerMac, "ff:ff:ff:ff:ff:ff", outPort))
 
@@ -234,7 +228,7 @@ class OpenflowRouter(SimpleRouter):
 
         for portNo, port in self.portInfo.items():
             if portNo == sendPort:
-                (routerIpAddr, routerMacAddr, routerPort) = port.get_all()
+                (routerIpAddr, routerMacAddr, routerPort, routeDist) = port.get_all()
 
         srcIp = routerIpAddr
         srcMac = routerMacAddr
@@ -257,7 +251,7 @@ class OpenflowRouter(SimpleRouter):
                 outPort = routerPort
 
         for port in self.portInfo.values():
-            (routerIpAddr, routerMacAddr, routerPort) = port.get_all()
+            (routerIpAddr, routerMacAddr, routerPort, routeDist) = port.get_all()
             if routerPort == outPort:
                 mod_srcMac = routerMacAddr
 
@@ -284,7 +278,7 @@ class OpenflowRouter(SimpleRouter):
                     outPort = routerPort
 
         for port in self.portInfo.values():
-            (routerIpAddr, routerMacAddr, routerPort) = port.get_all()
+            (routerIpAddr, routerMacAddr, routerPort, routeDist) = port.get_all()
             if routerPort == outPort:
                 mod_srcMac = routerMacAddr
 
@@ -313,7 +307,7 @@ class OpenflowRouter(SimpleRouter):
                     outPort = routerPort
 
         for port in self.portInfo.values():
-            (routerIpAddr, routerMacAddr, routerPort) = port.get_all()
+            (routerIpAddr, routerMacAddr, routerPort, routeDist) = port.get_all()
             if routerPort == outPort:
                 mod_srcMac = routerMacAddr
 
@@ -343,7 +337,7 @@ class OpenflowRouter(SimpleRouter):
                     outPort = routerPort
 
         for port in self.portInfo.values():
-            (routerIpAddr, routerMacAddr, routerPort) = port.get_all()
+            (routerIpAddr, routerMacAddr, routerPort, routeDist) = port.get_all()
             if routerPort == outPort:
                 mod_srcMac = routerMacAddr
 
@@ -635,7 +629,8 @@ class RouterController(ControllerBase):
         bgp_med = interface_param['interface']['bgp_med']
         bgp_local_pref = interface_param['interface']['bgp_local_pref']
         filterAsNumber = interface_param['interface']['bgp_filter_asnumber']
-        simpleRouter.register_inf(dpid, routerIp, netMask, routerMac, hostIp, asNumber, port, port_offload_bgp, bgp_med, bgp_local_pref, filterAsNumber)
+        vrf_routeDist = interface_param['interface']['vrf_routeDist']
+        simpleRouter.register_inf(dpid, routerIp, netMask, routerMac, hostIp, asNumber, port, port_offload_bgp, bgp_med, bgp_local_pref, filterAsNumber, vrf_routeDist)
         return {
             'id': '%016d' % dpid,
             'interface': {
@@ -648,7 +643,8 @@ class RouterController(ControllerBase):
                 'port_offload_bgp': '%s' % port_offload_bgp,
                 'bgp_med': '%s' % bgp_med,
                 'bgp_local_pref': '%s' % bgp_local_pref,
-                'bgp_filter_asnumber': '%s' % filterAsNumber
+                'bgp_filter_asnumber': '%s' % filterAsNumber,
+                'vrf_routeDist': '%s' % vrf_routeDist
             }
         }
 
@@ -699,11 +695,13 @@ class RouterController(ControllerBase):
     def redistributeConnect(self, dpid, connect_param):
         simpleRouter = self.router_spp
         redistribute = connect_param['bgp']['redistribute']
-        simpleRouter.redistribute_connect(dpid, redistribute)
+        vrf_routeDist = connect_param['bgp']['vrf_routeDist']
+        simpleRouter.redistribute_connect(dpid, redistribute, vrf_routeDist)
         return {
             'id': '%016d' % dpid,
             'bgp': {
                 'redistribute': '%s' % redistribute,
+                'vrf_routeDist': '%s' % vrf_routeDist,
             }
         }
 
@@ -738,11 +736,11 @@ class RouterController(ControllerBase):
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("%s : PortTable" % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
         LOG.info("+++++++++++++++++++++++++++++++")
-        LOG.info("portNo   IpAddress       MacAddress")
-        LOG.info("-------- --------------- -----------------")
+        LOG.info("portNo   IpAddress       MacAddress        RouteDist")
+        LOG.info("-------- --------------- ----------------- ---------")
         for k, v in sorted(simpleRouter.portInfo.items()):
-            (routerIpAddr, routerMacAddr, routerPort) = v.get_all()
-            LOG.info("%8x %-15s %s" % (routerPort, routerIpAddr, routerMacAddr))
+            (routerIpAddr, routerMacAddr, routerPort, routeDist) = v.get_all()
+            LOG.info("%8x %-15s %-15s %s" % (routerPort, routerIpAddr, routerMacAddr, routeDist))
         return {
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),

@@ -143,12 +143,12 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
                 self.speaker.prefix_add(local_prefix)
 
 
-    def remove_prefix(self, ipaddress, netmask):
+    def remove_prefix(self, ipaddress, netmask, routeDist=None):
         prefix = IPNetwork(ipaddress + '/' + netmask)
         local_prefix = str(prefix.cidr)
 
         LOG.info("Send BGP UPDATE(withdraw) Message [%s]"%local_prefix)
-        self.speaker.prefix_del(local_prefix)
+        self.speaker.prefix_del(local_prefix, routeDist)
 
 
     def show_rib(self):

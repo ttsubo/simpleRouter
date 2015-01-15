@@ -34,7 +34,6 @@ class OpenflowRouter(SimpleRouter):
         wsgi = kwargs['wsgi']
         wsgi.register(RouterController, {'OpenFlowRouter' : self})
         self.bgp_thread = hub.spawn(self.update_remotePrefix)
-        self.redistributeConnect = False
 
 
     def register_localPrefix(self, dpid, destIpAddr, netMask, nextHopIpAddr, routeDist='65010:101'):
@@ -63,34 +62,29 @@ class OpenflowRouter(SimpleRouter):
         netMask = "255.255.255.255"
         nextHopIpAddr = None
         if redistribute == "ON":
-            if self.redistributeConnect:
-                LOG.info("Skip redistributeConnect[ON]")
-            else:
-                self.redistributeConnect = True
-                for portNo, port in self.portInfo.items():
-                    (routerIpAddr, routerMacAddr, routerPort1, routeDist) = port.get_all()
-                    if vrf_routeDist == routeDist:
-                        for arp in self.arpInfo.values():
-                            (hostIpAddr, hostMacAddr, routerPort2) = arp.get_all()
-                            if routerPort1 == routerPort2:
-                                destIpAddr = hostIpAddr
-                                label = self.bgps.add_prefix(destIpAddr, netMask, None, routeDist)
-                                self.register_route_pop_mpls(dpid, routeDist, destIpAddr,
-                                                             netMask, label, nextHopIpAddr)
+            for portNo, port in self.portInfo.items():
+                (ipAddr1, macAddr1, port1, routeDist) = port.get_all()
+                if vrf_routeDist == routeDist:
+                    for arp in self.arpInfo.values():
+                        (ipAddr2, macAddr2, port2) = arp.get_all()
+                        if port1 == port2:
+                            destIpAddr = ipAddr2
+
+            label = self.bgps.add_prefix(destIpAddr, netMask, None, routeDist)
+            self.register_route_pop_mpls(dpid, routeDist, destIpAddr, netMask,
+                                         label, nextHopIpAddr)
         elif redistribute == "OFF":
-            if self.redistributeConnect:
-                self.redistributeConnect = False
-                for portNo, port in self.portInfo.items():
-                    (routerIpAddr, routerMacAddr, routerPort1, routeDist) = port.get_all()
-                    if vrf_routeDist == routeDist:
-                        for arp in self.arpInfo.values():
-                            (hostIpAddr, hostMacAddr, routerPort2) = arp.get_all()
-                            if routerPort1 == routerPort2:
-                                destIpAddr = hostIpAddr
-                                self.bgps.remove_prefix(destIpAddr, netMask, routeDist)
-                                self.remove_route(dpid, destIpAddr, netMask)
-            else:
-                LOG.info("Skip redistributeConnect[OFF]")
+            for portNo, port in self.portInfo.items():
+                (ipAddr1, macAddr1, port1, routeDist) = port.get_all()
+                if vrf_routeDist == routeDist:
+                    for arp in self.arpInfo.values():
+                        (ipAddr2, macAddr2, port2) = arp.get_all()
+                        if port1 == port2:
+                            destIpAddr = ipAddr2
+            self.bgps.remove_prefix(destIpAddr, netMask, routeDist)
+            self.remove_route_pop_mpls(dpid, routeDist, destIpAddr, netMask)
+
+
 
 
     def update_remotePrefix(self):
@@ -354,9 +348,23 @@ class OpenflowRouter(SimpleRouter):
 
     def remove_route(self, dpid, destIpAddr, netMask):
         datapath = self.monitor.datapaths[dpid]
-
         LOG.debug("Send Flow_mod(delete) [%s, %s]"%(destIpAddr, netMask))
         self.remove_flow_route(datapath, ether.ETH_TYPE_IP, destIpAddr, netMask)
+
+
+    def remove_route_pop_mpls(self, dpid, routeDist, destIpAddr, netMask):
+        datapath = self.monitor.datapaths[dpid]
+        LOG.debug("Send Flow_mod(delete) [%s, %s, %s]"%(routeDist, destIpAddr,
+                  netMask))
+        ipaddress = IPNetwork(destIpAddr + '/' + netMask)
+        prefix = str(ipaddress.cidr)
+        vpnv4Prefix = routeDist + ':' + prefix
+
+        for vpnv4_prefix, mpls in self.mplsInfo.items():
+            if vpnv4_prefix == vpnv4Prefix:
+                (prefix, label, nexthop) = mpls.get_mpls()
+
+        self.remove_flow_pop_mpls(datapath, vpnv4_prefix, label)
 
 
 class RouterController(ControllerBase):

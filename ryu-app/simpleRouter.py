@@ -436,7 +436,7 @@ class SimpleRouter(app_manager.RyuApp):
         vpnv4_prefix = routeDist + ':' + prefix
         if nexthop is None:
             nexthop = "0.0.0.0"
-        LOG.debug("add MplsInfo(prefix: %s, labe: %s)"%(prefix, label))
+        LOG.debug("add MplsInfo(%s, [%s])"%(vpnv4_prefix, label))
         self.mplsInfo[vpnv4_prefix] = MplsTable(prefix, label, mod_dstIp, mod_dstMask, nexthop)
 
         match = datapath.ofproto_parser.OFPMatch(
@@ -476,7 +476,7 @@ class SimpleRouter(app_manager.RyuApp):
         vpnv4_prefix = routeDist + ':' + prefix
         if nexthop is None:
             nexthop = "0.0.0.0"
-        LOG.debug("add MplsInfo(prefix: %s, labe: %s)"%(prefix, label))
+        LOG.debug("add MplsInfo(%s, [%s])"%(vpnv4_prefix, label))
         self.mplsInfo[vpnv4_prefix] = MplsTable(prefix, label, mod_dstIp, mod_dstMask, nexthop)
 
         match = datapath.ofproto_parser.OFPMatch(
@@ -515,6 +515,27 @@ class SimpleRouter(app_manager.RyuApp):
         match = datapath.ofproto_parser.OFPMatch(
                 eth_type=ethertype,
                 ipv4_dst=(dstIp, dstMask))
+        inst = []
+        mod = datapath.ofproto_parser.OFPFlowMod(
+                command=datapath.ofproto.OFPFC_DELETE_STRICT,
+                datapath=datapath,
+                priority=0xf,
+                out_port=datapath.ofproto.OFPP_ANY,
+                out_group=datapath.ofproto.OFPG_ANY,
+                match=match,
+                instructions=inst)
+        datapath.send_msg(mod)
+        return 0
+
+
+    def remove_flow_pop_mpls(self, datapath, vpnv4_prefix, label):
+
+        LOG.debug("delete MplsInfo(%s, [%s])"%(vpnv4_prefix, label))
+        self.mplsInfo.pop(vpnv4_prefix)
+
+        match = datapath.ofproto_parser.OFPMatch(
+                eth_type=0x8847,
+                mpls_label=label)
         inst = []
         mod = datapath.ofproto_parser.OFPFlowMod(
                 command=datapath.ofproto.OFPFC_DELETE_STRICT,

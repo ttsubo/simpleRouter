@@ -408,7 +408,8 @@ class SimpleRouter(app_manager.RyuApp):
                 mpls_label=label)
         actions =[datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
                 datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
-                datapath.ofproto_parser.OFPActionOutput(outPort, 0)]
+                datapath.ofproto_parser.OFPActionOutput(outPort, 0),
+                datapath.ofproto_parser.OFPActionDecMplsTtl()]
         inst = [datapath.ofproto_parser.OFPInstructionActions(
                 datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
         mod = datapath.ofproto_parser.OFPFlowMod(
@@ -446,7 +447,9 @@ class SimpleRouter(app_manager.RyuApp):
                 datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
                 datapath.ofproto_parser.OFPActionSetField(mpls_label=label),
                 datapath.ofproto_parser.OFPActionSetField(mpls_tc=1),
-                datapath.ofproto_parser.OFPActionOutput(outPort, 0)]
+                datapath.ofproto_parser.OFPActionOutput(outPort, 0),
+                datapath.ofproto_parser.OFPActionSetMplsTtl(255),
+                datapath.ofproto_parser.OFPActionDecMplsTtl()]
         inst = [datapath.ofproto_parser.OFPInstructionActions(
                 datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
         mod = datapath.ofproto_parser.OFPFlowMod(
@@ -478,11 +481,13 @@ class SimpleRouter(app_manager.RyuApp):
 
         match = datapath.ofproto_parser.OFPMatch(
                 eth_type=0x8847,
-                mpls_label=label)
+                mpls_label=label,
+                ipv4_dst=(mod_dstIp, mod_dstMask))
         actions =[datapath.ofproto_parser.OFPActionPopMpls(ethertype),
                 datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
                 datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
-                datapath.ofproto_parser.OFPActionOutput(outPort, 0)]
+                datapath.ofproto_parser.OFPActionOutput(outPort, 0),
+                datapath.ofproto_parser.OFPActionDecNwTtl()]
         inst = [datapath.ofproto_parser.OFPInstructionActions(
                 datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
         mod = datapath.ofproto_parser.OFPFlowMod(
@@ -493,7 +498,7 @@ class SimpleRouter(app_manager.RyuApp):
                 datapath=datapath,
                 idle_timeout=0,
                 hard_timeout=0,
-                priority=0xff,
+                priority=0xf,
                 buffer_id=0xffffffff,
                 out_port=datapath.ofproto.OFPP_ANY,
                 out_group=datapath.ofproto.OFPG_ANY,

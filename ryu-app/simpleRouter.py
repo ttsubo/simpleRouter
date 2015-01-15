@@ -481,8 +481,7 @@ class SimpleRouter(app_manager.RyuApp):
 
         match = datapath.ofproto_parser.OFPMatch(
                 eth_type=0x8847,
-                mpls_label=label,
-                ipv4_dst=(mod_dstIp, mod_dstMask))
+                mpls_label=label)
         actions =[datapath.ofproto_parser.OFPActionPopMpls(ethertype),
                 datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
                 datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
@@ -498,7 +497,7 @@ class SimpleRouter(app_manager.RyuApp):
                 datapath=datapath,
                 idle_timeout=0,
                 hard_timeout=0,
-                priority=0xf,
+                priority=0xe,
                 buffer_id=0xffffffff,
                 out_port=datapath.ofproto.OFPP_ANY,
                 out_group=datapath.ofproto.OFPG_ANY,

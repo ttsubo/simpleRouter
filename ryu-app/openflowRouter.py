@@ -850,7 +850,7 @@ class RouterController(ControllerBase):
         LOG.info("+++++++++++++++++++++++++++++++")
         LOG.info("%s : FlowStats" % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
         LOG.info("+++++++++++++++++++++++++++++++")
-        LOG.info("destination        packets    bytes")
+        LOG.info("destination(label) packets    bytes")
         LOG.info("------------------ ---------- ----------")
         for k, v in sorted(simpleRouter.monitor.flowStats.items()):
             (ipv4Dst, packets, bytes) = v.getFlow()

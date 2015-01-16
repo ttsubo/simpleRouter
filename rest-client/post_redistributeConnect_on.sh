@@ -7,7 +7,7 @@ from common_func import request_info
 
 redistribute_opts = []
 
-redistribute_opts.append(cfg.StrOpt('redistribute', default=[],
+redistribute_opts.append(cfg.StrOpt('redistribute_on', default=[],
                          help='redistribute'))
 redistribute_opts.append(cfg.StrOpt('vrf_routeDist', default=[],
                          help='vrf_routeDist'))
@@ -47,7 +47,7 @@ def main():
     dpid = "0000000000000001"
     try:
         CONF(default_config_files=['OpenFlow.ini'])
-        redistribute = CONF.Bgp.redistribute
+        redistribute = CONF.Bgp.redistribute_on
         vrf_routeDist = CONF.Bgp.vrf_routeDist
     except cfg.ConfigFilesNotFoundError:
         print "Error: Not Found <OpenFlow.ini> "

@@ -15,7 +15,7 @@ from webob import Response
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 
 LOG = logging.getLogger('OpenflowRouter')
-LOG.setLevel(logging.DEBUG)
+LOG.setLevel(logging.INFO)
 
 class OpenflowRouter(SimpleRouter):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
@@ -36,10 +36,13 @@ class OpenflowRouter(SimpleRouter):
         self.bgp_thread = hub.spawn(self.update_remotePrefix)
 
 
-    def register_localPrefix(self, dpid, destIpAddr, netMask, nextHopIpAddr, routeDist='65010:101'):
+    def register_localPrefix(self, dpid, destIpAddr, netMask, nextHopIpAddr,
+                             routeDist='65010:101'):
         if routeDist:
-            label = self.bgps.add_prefix(destIpAddr, netMask, nextHopIpAddr, routeDist)
-            self.register_route_pop_mpls(dpid, routeDist, destIpAddr, netMask, label, nextHopIpAddr)
+            label = self.bgps.add_prefix(destIpAddr, netMask, nextHopIpAddr,
+                                         routeDist)
+            self.register_route_pop_mpls(dpid, routeDist, destIpAddr, netMask,
+                                         label, nextHopIpAddr)
         else:
             self.bgps.add_prefix(destIpAddr, netMask, nextHopIpAddr)
             self.register_route(dpid, destIpAddr, netMask, nextHopIpAddr)
@@ -85,8 +88,6 @@ class OpenflowRouter(SimpleRouter):
             self.remove_route_pop_mpls(dpid, routeDist, destIpAddr, netMask)
 
 
-
-
     def update_remotePrefix(self):
         while True:
             dpid = 1
@@ -102,7 +103,8 @@ class OpenflowRouter(SimpleRouter):
                 withdraw = remotePrefix['withdraw']
                 if withdraw:
                     if label:
-                        pass
+                        self.remove_route_push_mpls(dpid, routeDist, label,
+                                                    destIpAddr, netMask)
                     else:
                         self.remove_route(dpid, destIpAddr, netMask)
                 else:
@@ -301,7 +303,7 @@ class OpenflowRouter(SimpleRouter):
                     outPort = routerPort
 
         for port in self.portInfo.values():
-            (routerIpAddr, routerMacAddr, routerPort, routeDist) = port.get_all()
+            (routerIpAddr, routerMacAddr, routerPort, rd) = port.get_all()
             if routerPort == outPort:
                 mod_srcMac = routerMacAddr
 
@@ -341,7 +343,6 @@ class OpenflowRouter(SimpleRouter):
             self.add_flow_pop_mpls(datapath, ether.ETH_TYPE_IP, routeDist,
                                    label, destIpAddr, netMask, mod_srcMac,
                                    mod_dstMac, outPort, nextHopIpAddr)
-#            self.add_flow_mpls(datapath, label, mod_srcMac, mod_dstMac, outPort)
         else:
             LOG.debug("Unknown nextHopIpAddress!!")
 
@@ -362,9 +363,21 @@ class OpenflowRouter(SimpleRouter):
 
         for vpnv4_prefix, mpls in self.mplsInfo.items():
             if vpnv4_prefix == vpnv4Prefix:
-                (prefix, label, nexthop) = mpls.get_mpls()
+                (routeDist, prefix, label, nexthop) = mpls.get_mpls()
+                self.remove_flow_pop_mpls(datapath, vpnv4_prefix, label)
 
-        self.remove_flow_pop_mpls(datapath, vpnv4_prefix, label)
+
+    def remove_route_push_mpls(self, dpid, routeDist, label, destIpAddr, netMask):
+        datapath = self.monitor.datapaths[dpid]
+        LOG.debug("Send Flow_mod(delete) [%s, %s, %s]"%(routeDist, destIpAddr,
+                  netMask))
+        ipaddress = IPNetwork(destIpAddr + '/' + netMask)
+        prefix = str(ipaddress.cidr)
+        vpnv4Prefix = routeDist + ':' + prefix
+
+        self.remove_flow_push_mpls(datapath, label, destIpAddr, netMask,
+                                   vpnv4Prefix)
+        self.remove_flow_mpls(datapath, label)
 
 
 class RouterController(ControllerBase):
@@ -394,6 +407,15 @@ class RouterController(ControllerBase):
     @route('router', '/openflow/{dpid}/route', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
     def get_route(self, req, dpid, **kwargs):
         result = self.getRoute(int(dpid, 16))
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+
+    @route('router', '/openflow/{dpid}/mpls', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
+    def get_MPLS(self, req, dpid, **kwargs):
+        result = self.getMpls(int(dpid, 16))
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -794,6 +816,27 @@ class RouterController(ControllerBase):
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
           'route': [
             v.__dict__ for k, v in sorted(simpleRouter.routingInfo.items())
+          ]
+        }
+
+
+    def getMpls(self, dpid):
+        simpleRouter = self.router_spp
+        nowtime = datetime.datetime.now()
+        LOG.info("+++++++++++++++++++++++++++++++")
+        LOG.info("%s : MplsTable " % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
+        LOG.info("+++++++++++++++++++++++++++++++")
+        LOG.info("routeDist  prefix             nexthop          label")
+        LOG.info("---------- ------------------ ---------------- -----")
+        for k, v in sorted(simpleRouter.mplsInfo.items()):
+            (routeDist, prefix, label, nextHopIpAddr) = v.get_mpls()
+            LOG.info("%s  %-18s %-15s  %-5s" % (routeDist, prefix,
+                                               nextHopIpAddr, label))
+        return {
+          'id': '%016d' % dpid,
+          'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
+          'mpls': [
+            v.__dict__ for k, v in sorted(simpleRouter.mplsInfo.items())
           ]
         }
 

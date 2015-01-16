@@ -68,7 +68,8 @@ class RoutingTable(object):
 
 
 class MplsTable(object):
-    def __init__(self, prefix, label, destIpAddr, netMask, nextHopIpAddr):
+    def __init__(self, routeDist, prefix, label, destIpAddr, netMask, nextHopIpAddr):
+        self.routeDist = routeDist
         self.prefix = prefix
         self.label = label
         self.destIpAddr = destIpAddr
@@ -76,7 +77,7 @@ class MplsTable(object):
         self.nextHopIpAddr = nextHopIpAddr
 
     def get_mpls(self):
-        return self.prefix, self.label, self.nextHopIpAddr
+        return self.routeDist, self.prefix, self.label, self.nextHopIpAddr
 
 
 class SimpleRouter(app_manager.RyuApp):
@@ -402,7 +403,6 @@ class SimpleRouter(app_manager.RyuApp):
 
 
     def add_flow_mpls(self, datapath, label, mod_srcMac, mod_dstMac, outPort):
-
         match = datapath.ofproto_parser.OFPMatch(
                 eth_type=0x8847,
                 mpls_label=label)
@@ -437,7 +437,8 @@ class SimpleRouter(app_manager.RyuApp):
         if nexthop is None:
             nexthop = "0.0.0.0"
         LOG.debug("add MplsInfo(%s, [%s])"%(vpnv4_prefix, label))
-        self.mplsInfo[vpnv4_prefix] = MplsTable(prefix, label, mod_dstIp, mod_dstMask, nexthop)
+        self.mplsInfo[vpnv4_prefix] = MplsTable(routeDist, prefix, label,
+                                                mod_dstIp, mod_dstMask, nexthop)
 
         match = datapath.ofproto_parser.OFPMatch(
                 eth_type=ethertype,
@@ -477,7 +478,8 @@ class SimpleRouter(app_manager.RyuApp):
         if nexthop is None:
             nexthop = "0.0.0.0"
         LOG.debug("add MplsInfo(%s, [%s])"%(vpnv4_prefix, label))
-        self.mplsInfo[vpnv4_prefix] = MplsTable(prefix, label, mod_dstIp, mod_dstMask, nexthop)
+        self.mplsInfo[vpnv4_prefix] = MplsTable(routeDist, prefix, label,
+                                                mod_dstIp, mod_dstMask, nexthop)
 
         match = datapath.ofproto_parser.OFPMatch(
                 eth_type=0x8847,
@@ -528,11 +530,47 @@ class SimpleRouter(app_manager.RyuApp):
         return 0
 
 
-    def remove_flow_pop_mpls(self, datapath, vpnv4_prefix, label):
-
+    def remove_flow_push_mpls(self, datapath, label, mod_dstIp, mod_dstMask, vpnv4_prefix):
         LOG.debug("delete MplsInfo(%s, [%s])"%(vpnv4_prefix, label))
         self.mplsInfo.pop(vpnv4_prefix)
 
+        match = datapath.ofproto_parser.OFPMatch(
+                eth_type=0x0800,
+                ipv4_dst=(mod_dstIp, mod_dstMask))
+        inst = []
+        mod = datapath.ofproto_parser.OFPFlowMod(
+                command=datapath.ofproto.OFPFC_DELETE_STRICT,
+                datapath=datapath,
+                priority=0xf,
+                out_port=datapath.ofproto.OFPP_ANY,
+                out_group=datapath.ofproto.OFPG_ANY,
+                match=match,
+                instructions=inst)
+        datapath.send_msg(mod)
+        return 0
+
+
+    def remove_flow_pop_mpls(self, datapath, vpnv4_prefix, label):
+        LOG.debug("delete MplsInfo(%s, [%s])"%(vpnv4_prefix, label))
+        self.mplsInfo.pop(vpnv4_prefix)
+
+        match = datapath.ofproto_parser.OFPMatch(
+                eth_type=0x8847,
+                mpls_label=label)
+        inst = []
+        mod = datapath.ofproto_parser.OFPFlowMod(
+                command=datapath.ofproto.OFPFC_DELETE_STRICT,
+                datapath=datapath,
+                priority=0xf,
+                out_port=datapath.ofproto.OFPP_ANY,
+                out_group=datapath.ofproto.OFPG_ANY,
+                match=match,
+                instructions=inst)
+        datapath.send_msg(mod)
+        return 0
+
+
+    def remove_flow_mpls(self, datapath, label):
         match = datapath.ofproto_parser.OFPMatch(
                 eth_type=0x8847,
                 mpls_label=label)

@@ -37,12 +37,12 @@ class OpenflowRouter(SimpleRouter):
 
 
     def register_localPrefix(self, dpid, destIpAddr, netMask, nextHopIpAddr,
-                             routeDist='65010:101'):
-        if routeDist:
+                             vrf_routeDist):
+        if vrf_routeDist:
             label = self.bgps.add_prefix(destIpAddr, netMask, nextHopIpAddr,
-                                         routeDist)
-            self.register_route_pop_mpls(dpid, routeDist, destIpAddr, netMask,
-                                         label, nextHopIpAddr)
+                                         vrf_routeDist)
+            self.register_route_pop_mpls(dpid, vrf_routeDist, destIpAddr,
+                                         netMask, label, nextHopIpAddr)
         else:
             self.bgps.add_prefix(destIpAddr, netMask, nextHopIpAddr)
             self.register_route(dpid, destIpAddr, netMask, nextHopIpAddr)
@@ -157,18 +157,18 @@ class OpenflowRouter(SimpleRouter):
         self.bgps.stop_bmpclient(address, portNum)
 
 
-    def register_vrf(self, dpid, routeDist, importRt, exportRt):
+    def register_vrf(self, dpid, vrf_routeDist, importRt, exportRt):
         importList = []
         exportList = []
         importList.append(importRt)
         exportList.append(exportRt)
-        LOG.debug("Register vrf(RD:%s)"%routeDist)
-        self.bgps.add_vrf(routeDist, importList, exportList)
+        LOG.debug("Register vrf(RD:%s)"%vrf_routeDist)
+        self.bgps.add_vrf(vrf_routeDist, importList, exportList)
 
 
-    def delete_vrf(self, dpid, routeDist):
-        LOG.debug("Delete vrf(RD:%s)"%routeDist)
-        self.bgps.del_vrf(routeDist)
+    def delete_vrf(self, dpid, vrf_routeDist):
+        LOG.debug("Delete vrf(RD:%s)"%vrf_routeDist)
+        self.bgps.del_vrf(vrf_routeDist)
 
 
     def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, asNumber, Port, bgpPort, med, localPref, filterAsNumber, vrf_routeDist):
@@ -721,13 +721,16 @@ class RouterController(ControllerBase):
         destinationIp = route_param['route']['destination']
         netMask = route_param['route']['netmask']
         nexthopIp = route_param['route']['nexthop']
-        simpleRouter.register_localPrefix(dpid, destinationIp, netMask, nexthopIp)
+        vrf_routeDist = route_param['route']['vrf_routeDist']
+        simpleRouter.register_localPrefix(dpid, destinationIp, netMask,
+                                          nexthopIp, vrf_routeDist)
         return {
             'id': '%016d' % dpid,
             'route': {
                 'destination': '%s' % destinationIp,
                 'netmask': '%s' % netMask,
                 'nexthop': '%s' % nexthopIp,
+                'vrf_routeDist': '%s' % vrf_routeDist
             }
         }
 

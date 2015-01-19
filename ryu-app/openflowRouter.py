@@ -94,7 +94,7 @@ class OpenflowRouter(SimpleRouter):
             if not self.bgps.bgp_q.empty():
                 remotePrefix = self.bgps.bgp_q.get()
                 LOG.debug("remotePrefix=%s"%remotePrefix)
-                routeDist = remotePrefix['route_dist']
+                vrf_routeDist = remotePrefix['route_dist']
                 destIpAddr = remotePrefix['prefix']
                 netMask = remotePrefix['netmask']
                 nextHopIpAddr = remotePrefix['nexthop']
@@ -103,18 +103,19 @@ class OpenflowRouter(SimpleRouter):
                 withdraw = remotePrefix['withdraw']
                 if withdraw:
                     if label:
-                        self.remove_route_push_mpls(dpid, routeDist, label,
+                        self.remove_route_push_mpls(dpid, vrf_routeDist, label,
                                                     destIpAddr, netMask)
                     else:
                         self.remove_route(dpid, destIpAddr, netMask)
                 else:
                     if label:
                         if destIpAddr != "0.0.0.0":
-                            self.register_route_push_mpls(dpid, routeDist,
+                            self.register_route_push_mpls(dpid, vrf_routeDist,
                                                      destIpAddr, netMask, label,
                                                      nextHopIpAddr)
                         else:
-                            pass
+                            self.register_gateway_push_mpls(dpid, vrf_routeDist,
+                                                            label, nextHopIpAddr)
                     else:
                         if destIpAddr != "0.0.0.0":
                             self.register_route(dpid, destIpAddr, netMask,
@@ -220,16 +221,16 @@ class OpenflowRouter(SimpleRouter):
 
         for portNo, arp in self.arpInfo.items():
             if portNo == sendPort:
-                (hostIpAddr, hostMacAddr, routerPort) = arp.get_all()
+                (ipAddr1, macAddr1, port1) = arp.get_all()
 
         for portNo, port in self.portInfo.items():
             if portNo == sendPort:
-                (routerIpAddr, routerMacAddr, routerPort, routeDist) = port.get_all()
+                (ipAddr, macAddr2, port2, routeDist) = port.get_all()
 
-        srcIp = routerIpAddr
-        srcMac = routerMacAddr
+        srcIp = ipAddr1
+        srcMac = macAddr1
         dstIp = targetIp
-        dstMac = hostMacAddr
+        dstMac = macAddr2
 
         self.send_icmp(datapath, srcMac, srcIp, dstMac, dstIp, sendPort, seq,
                        data)
@@ -241,15 +242,15 @@ class OpenflowRouter(SimpleRouter):
         datapath = self.monitor.datapaths[dpid]
 
         for arp in self.arpInfo.values():
-            (hostIpAddr, hostMacAddr, routerPort) = arp.get_all()
-            if defaultIpAddr == hostIpAddr:
-                mod_dstMac = hostMacAddr
-                outPort = routerPort
+            (ipAddr1, macAddr1, port1) = arp.get_all()
+            if defaultIpAddr == ipAddr1:
+                mod_dstMac = macAddr1
+                outPort = port1
 
         for port in self.portInfo.values():
-            (routerIpAddr, routerMacAddr, routerPort, routeDist) = port.get_all()
-            if routerPort == outPort:
-                mod_srcMac = routerMacAddr
+            (ipAddr2, macAddr2, port2, routeDist) = port.get_all()
+            if port2 == outPort:
+                mod_srcMac = macAddr2
 
         if mod_dstMac and mod_srcMac:
             self.add_flow_gateway(datapath, ether.ETH_TYPE_IP, mod_srcMac,
@@ -259,24 +260,48 @@ class OpenflowRouter(SimpleRouter):
             LOG.debug("Unknown defaultIpAddress!!")
 
 
+    def register_gateway_push_mpls(self, dpid, vrf_routeDist, label, defaultIpAddr):
+        datapath = self.monitor.datapaths[dpid]
+
+        for arp in self.arpInfo.values():
+            (ipAddr1, macAddr1, port1) = arp.get_all()
+            if defaultIpAddr == ipAddr1:
+                mod_dstMac = macAddr1
+                outPort = port1
+
+        for port in self.portInfo.values():
+            (ipAddr2, macAddr2, port2, routeDist) = port.get_all()
+            if port2 == outPort:
+                mod_srcMac = macAddr2
+
+        if mod_dstMac and mod_srcMac:
+            self.add_flow_gateway_push_mpls(datapath, ether.ETH_TYPE_IP,
+                                            vrf_routeDist, label, mod_srcMac,
+                                            mod_dstMac, outPort, defaultIpAddr)
+            LOG.debug("Send Flow_mod packet for gateway(%s)"% defaultIpAddr)
+            self.add_flow_mpls(datapath, label, mod_srcMac, mod_dstMac, outPort)
+        else:
+            LOG.debug("Unknown defaultIpAddress!!")
+
+
     def register_route(self, dpid, destIpAddr, netMask, nextHopIpAddr):
         datapath = self.monitor.datapaths[dpid]
 
         for arp in self.arpInfo.values():
-            (hostIpAddr, hostMacAddr, routerPort) = arp.get_all()
+            (ipAddr1, macAddr1, port1) = arp.get_all()
             if nextHopIpAddr:
-                if nextHopIpAddr == hostIpAddr:
-                    mod_dstMac = hostMacAddr
-                    outPort = routerPort
+                if nextHopIpAddr == ipAddr1:
+                    mod_dstMac = macAddr1
+                    outPort = port1
             else:
-                if destIpAddr == hostIpAddr:
-                    mod_dstMac = hostMacAddr
-                    outPort = routerPort
+                if destIpAddr == ipAddr1:
+                    mod_dstMac = macAddr1
+                    outPort = port1
 
         for port in self.portInfo.values():
-            (routerIpAddr, routerMacAddr, routerPort, routeDist) = port.get_all()
-            if routerPort == outPort:
-                mod_srcMac = routerMacAddr
+            (ipAddr2, macAddr2, port2, routeDist) = port.get_all()
+            if port2 == outPort:
+                mod_srcMac = macAddr2
 
         if mod_dstMac and mod_srcMac:
             LOG.debug("Send Flow_mod(create) [%s, %s, %s]"%(destIpAddr,
@@ -288,29 +313,29 @@ class OpenflowRouter(SimpleRouter):
             LOG.debug("Unknown nextHopIpAddress!!")
  
 
-    def register_route_push_mpls(self, dpid, routeDist, destIpAddr, netMask, label, nextHopIpAddr):
+    def register_route_push_mpls(self, dpid, vrf_routeDist, destIpAddr, netMask, label, nextHopIpAddr):
         datapath = self.monitor.datapaths[dpid]
 
         for arp in self.arpInfo.values():
-            (hostIpAddr, hostMacAddr, routerPort) = arp.get_all()
+            (ipAddr1, macAddr1, port1) = arp.get_all()
             if nextHopIpAddr:
-                if nextHopIpAddr == hostIpAddr:
-                    mod_dstMac = hostMacAddr
-                    outPort = routerPort
+                if nextHopIpAddr == ipAddr1:
+                    mod_dstMac = macAddr1
+                    outPort = port1
             else:
-                if destIpAddr == hostIpAddr:
-                    mod_dstMac = hostMacAddr
-                    outPort = routerPort
+                if destIpAddr == ipAddr1:
+                    mod_dstMac = macAddr1
+                    outPort = port1
 
         for port in self.portInfo.values():
-            (routerIpAddr, routerMacAddr, routerPort, rd) = port.get_all()
-            if routerPort == outPort:
-                mod_srcMac = routerMacAddr
+            (ipAddr2, macAddr2, port2, routeDist) = port.get_all()
+            if port2 == outPort:
+                mod_srcMac = macAddr2
 
         if mod_dstMac and mod_srcMac:
-            LOG.debug("Send Flow_mod(create) [%s, %s, %s, %s, %s]"%(routeDist,
-                      destIpAddr, netMask, nextHopIpAddr, label))
-            self.add_flow_push_mpls(datapath, ether.ETH_TYPE_IP, routeDist,
+            LOG.debug("Send Flow_mod(create) [%s, %s, %s, %s, %s]"%(
+                      vrf_routeDist, destIpAddr, netMask, nextHopIpAddr, label))
+            self.add_flow_push_mpls(datapath, ether.ETH_TYPE_IP, vrf_routeDist,
                                     label, destIpAddr, netMask, mod_srcMac,
                                     mod_dstMac, outPort, nextHopIpAddr)
             self.add_flow_mpls(datapath, label, mod_srcMac, mod_dstMac, outPort)
@@ -318,29 +343,29 @@ class OpenflowRouter(SimpleRouter):
             LOG.debug("Unknown nextHopIpAddress!!")
 
  
-    def register_route_pop_mpls(self, dpid, routeDist, destIpAddr, netMask, label, nextHopIpAddr):
+    def register_route_pop_mpls(self, dpid, vrf_routeDist, destIpAddr, netMask, label, nextHopIpAddr):
         datapath = self.monitor.datapaths[dpid]
 
         for arp in self.arpInfo.values():
-            (hostIpAddr, hostMacAddr, routerPort) = arp.get_all()
+            (ipAddr1, macAddr1, port1) = arp.get_all()
             if nextHopIpAddr:
-                if nextHopIpAddr == hostIpAddr:
-                    mod_dstMac = hostMacAddr
-                    outPort = routerPort
+                if nextHopIpAddr == ipAddr1:
+                    mod_dstMac = macAddr1
+                    outPort = port1
             else:
-                if destIpAddr == hostIpAddr:
-                    mod_dstMac = hostMacAddr
-                    outPort = routerPort
+                if destIpAddr == ipAddr1:
+                    mod_dstMac = macAddr1
+                    outPort = port1
 
         for port in self.portInfo.values():
-            (routerIpAddr, routerMacAddr, routerPort, routeDist) = port.get_all()
-            if routerPort == outPort:
-                mod_srcMac = routerMacAddr
+            (ipAddr2, macAddr2, port2, routeDist) = port.get_all()
+            if port2 == outPort:
+                mod_srcMac = macAddr2
 
         if mod_dstMac and mod_srcMac:
-            LOG.debug("Send Flow_mod(create) [%s, %s, %s, %s, %s]"%(routeDist,
-                       destIpAddr, netMask, nextHopIpAddr, label))
-            self.add_flow_pop_mpls(datapath, ether.ETH_TYPE_IP, routeDist,
+            LOG.debug("Send Flow_mod(create) [%s, %s, %s, %s, %s]"%(
+                      vrf_routeDist, destIpAddr, netMask, nextHopIpAddr, label))
+            self.add_flow_pop_mpls(datapath, ether.ETH_TYPE_IP, vrf_routeDist,
                                    label, destIpAddr, netMask, mod_srcMac,
                                    mod_dstMac, outPort, nextHopIpAddr)
         else:
@@ -353,13 +378,13 @@ class OpenflowRouter(SimpleRouter):
         self.remove_flow_route(datapath, ether.ETH_TYPE_IP, destIpAddr, netMask)
 
 
-    def remove_route_pop_mpls(self, dpid, routeDist, destIpAddr, netMask):
+    def remove_route_pop_mpls(self, dpid, vrf_routeDist, destIpAddr, netMask):
         datapath = self.monitor.datapaths[dpid]
-        LOG.debug("Send Flow_mod(delete) [%s, %s, %s]"%(routeDist, destIpAddr,
-                  netMask))
+        LOG.debug("Send Flow_mod(delete) [%s, %s, %s]"%(vrf_routeDist,
+                  destIpAddr, netMask))
         ipaddress = IPNetwork(destIpAddr + '/' + netMask)
         prefix = str(ipaddress.cidr)
-        vpnv4Prefix = routeDist + ':' + prefix
+        vpnv4Prefix = vrf_routeDist + ':' + prefix
 
         for vpnv4_prefix, mpls in self.mplsInfo.items():
             if vpnv4_prefix == vpnv4Prefix:
@@ -367,13 +392,13 @@ class OpenflowRouter(SimpleRouter):
                 self.remove_flow_pop_mpls(datapath, vpnv4_prefix, label)
 
 
-    def remove_route_push_mpls(self, dpid, routeDist, label, destIpAddr, netMask):
+    def remove_route_push_mpls(self, dpid, vrf_routeDist, label, destIpAddr, netMask):
         datapath = self.monitor.datapaths[dpid]
-        LOG.debug("Send Flow_mod(delete) [%s, %s, %s]"%(routeDist, destIpAddr,
-                  netMask))
+        LOG.debug("Send Flow_mod(delete) [%s, %s, %s]"%(vrf_routeDist,
+                  destIpAddr, netMask))
         ipaddress = IPNetwork(destIpAddr + '/' + netMask)
         prefix = str(ipaddress.cidr)
-        vpnv4Prefix = routeDist + ':' + prefix
+        vpnv4Prefix = vrf_routeDist + ':' + prefix
 
         self.remove_flow_push_mpls(datapath, label, destIpAddr, netMask,
                                    vpnv4Prefix)

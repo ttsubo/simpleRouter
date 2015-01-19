@@ -367,6 +367,43 @@ class SimpleRouter(app_manager.RyuApp):
         return 0
 
 
+    def add_flow_gateway_push_mpls(self, datapath, ethertype, routeDist, label, mod_srcMac, mod_dstMac, outPort, defaultIpAddr):
+        ipaddress = IPNetwork("0.0.0.0" + '/' + "0.0.0.0")
+        prefix = str(ipaddress.cidr)
+        vpnv4_prefix = routeDist + ':' + prefix
+        LOG.debug("add MplsInfo(%s, [%s])"%(vpnv4_prefix, label))
+        self.mplsInfo[vpnv4_prefix] = MplsTable(routeDist, prefix, label,
+                                                "0.0.0.0", "0.0.0.0",
+                                                defaultIpAddr)
+
+        match = datapath.ofproto_parser.OFPMatch(eth_type=ethertype)
+        actions =[datapath.ofproto_parser.OFPActionPushMpls(0x8847),
+                datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
+                datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
+                datapath.ofproto_parser.OFPActionSetField(mpls_label=label),
+                datapath.ofproto_parser.OFPActionSetField(mpls_tc=1),
+                datapath.ofproto_parser.OFPActionOutput(outPort, 0),
+                datapath.ofproto_parser.OFPActionSetMplsTtl(255),
+                datapath.ofproto_parser.OFPActionDecMplsTtl()]
+        inst = [datapath.ofproto_parser.OFPInstructionActions(
+                datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
+        mod = datapath.ofproto_parser.OFPFlowMod(
+                cookie=0,
+                cookie_mask=0,
+                table_id=0,
+                command=datapath.ofproto.OFPFC_ADD,
+                datapath=datapath,
+                idle_timeout=0,
+                hard_timeout=0,
+                priority=0x1,
+                buffer_id=0xffffffff,
+                out_port=datapath.ofproto.OFPP_ANY,
+                out_group=datapath.ofproto.OFPG_ANY,
+                match=match,
+                instructions=inst)
+        datapath.send_msg(mod)
+
+
     def add_flow_route(self, datapath, ethertype, mod_dstIp, mod_dstMask, mod_srcMac, mod_dstMac, outPort, nexthop):
         ipaddress = IPNetwork(mod_dstIp + '/' + mod_dstMask)
         prefix = str(ipaddress.cidr)

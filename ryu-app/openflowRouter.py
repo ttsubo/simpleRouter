@@ -225,12 +225,12 @@ class OpenflowRouter(SimpleRouter):
 
         for portNo, port in self.portInfo.items():
             if portNo == sendPort:
-                (ipAddr, macAddr2, port2, routeDist) = port.get_all()
+                (ipAddr2, macAddr2, port2, routeDist) = port.get_all()
 
-        srcIp = ipAddr1
-        srcMac = macAddr1
+        srcIp = ipAddr2
+        srcMac = macAddr2
         dstIp = targetIp
-        dstMac = macAddr2
+        dstMac = macAddr1
 
         self.send_icmp(datapath, srcMac, srcIp, dstMac, dstIp, sendPort, seq,
                        data)

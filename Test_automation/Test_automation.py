@@ -16,6 +16,7 @@ from ryu.lib.packet import bgp
 from ryu.lib import hub
 from ryu.lib.hub import StreamServer
 from oslo.config import cfg
+from datetime import datetime
 log = logging.getLogger()
 log.addHandler(logging.StreamHandler(sys.stderr))
 
@@ -45,24 +46,25 @@ class TargetTable(object):
 class Ping(object):
     def __init__(self, host):
         ping = subprocess.Popen(
-            ["ping", "-c", "1", host],
+            ["ping", "-c", "5", host],
             stdout = subprocess.PIPE,
             stderr = subprocess.PIPE
         )
         ping_t = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
         out, error = ping.communicate()
-        if error:
-            print(ping_t+'                | [ping NG]: '+'target->'+host+',Msg->\'' + error.rstrip() + '\'')
-        else:
-            print(ping_t+'                | [ping OK]: '+'target->'+host)
+        print(ping_t+'                | [ping]: '+'target->'+host)
 
 def print_BMPPeerUpNotification(msg, addr):
     peer_as = msg.peer_as
     peer_bgp_id = msg.peer_bgp_id
     bgp_t = time.strftime("%Y/%m/%d %H:%M:%S",
                            time.localtime(int(msg.timestamp)))
-    print "%s %s %s | BGP_PeerUp" % (
-           bgp_t, peer_as, peer_bgp_id)
+    time1 = time.mktime(time.localtime(int(msg.timestamp)))
+    time2 = time.mktime(time.localtime())
+    time_delta = time2 - time1
+    if time_delta < 30:
+        print "%s %s %s | BGP_PeerUp" % (
+               bgp_t, peer_as, peer_bgp_id)
 
 def print_BMPRouteMonitoring(msg, addr):
     if msg.peer_type == bmp.BMP_PEER_TYPE_GLOBAL:
@@ -97,22 +99,26 @@ def print_l3vpn(msg, addr):
     peer_bgp_id = msg.peer_bgp_id
     bgp_t = time.strftime("%Y/%m/%d %H:%M:%S",
                            time.localtime(int(msg.timestamp)))
-    for data in msg.bgp_update.path_attributes:
-        if isinstance(data, bgp.BGPPathAttributeMpUnreachNLRI):
-            del_nlri = data.withdrawn_routes[0]
-            routeDist = str(del_nlri.addr[1].admin)+':'+str(del_nlri.addr[1].assigned)
-            del_vpnv4_prefix = routeDist + ':' + del_nlri.addr[2]
-            print "%s %s %s | BGP_Update(del_prefix:%s)" % (
-                   bgp_t, peer_as, peer_bgp_id, del_vpnv4_prefix)
-            action_ping(del_vpnv4_prefix)
-        elif isinstance(data, bgp.BGPPathAttributeMpReachNLRI):
-            nlri = data.nlri[0]
-            routeDist = str(nlri.addr[1].admin)+':'+str(nlri.addr[1].assigned)
-            vpnv4_prefix = routeDist + ':' + nlri.addr[2]
-            nexthop = data.next_hop
-            print "%s %s %s | BGP_Update(add_prefix:%s, nexthop:%s)" % (
-                   bgp_t, peer_as, peer_bgp_id, vpnv4_prefix, nexthop)
-            action_ping(vpnv4_prefix)
+    now_t = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
+    time1 = time.mktime(time.localtime(int(msg.timestamp)))
+    time2 = time.mktime(time.localtime())
+    time_delta = time2 - time1
+    if time_delta < 30:
+        for data in msg.bgp_update.path_attributes:
+            if isinstance(data, bgp.BGPPathAttributeMpUnreachNLRI):
+                del_nlri = data.withdrawn_routes[0]
+                routeDist = str(del_nlri.addr[1].admin)+':'+str(del_nlri.addr[1].assigned)
+                del_vpnv4_prefix = routeDist + ':' + del_nlri.addr[2]
+                print "%s %s %s | BGP_Update(del_prefix:%s)" % (
+                       bgp_t, peer_as, peer_bgp_id, del_vpnv4_prefix)
+            elif isinstance(data, bgp.BGPPathAttributeMpReachNLRI):
+                nlri = data.nlri[0]
+                routeDist = str(nlri.addr[1].admin)+':'+str(nlri.addr[1].assigned)
+                vpnv4_prefix = routeDist + ':' + nlri.addr[2]
+                nexthop = data.next_hop
+                print "%s %s %s | BGP_Update(add_prefix:%s, nexthop:%s)" % (
+                       bgp_t, peer_as, peer_bgp_id, vpnv4_prefix, nexthop)
+                action_ping(vpnv4_prefix)
 
 
 def action_ping(vpnv4_prefix):
@@ -173,8 +179,9 @@ def handler(sock, addr):
                 elif isinstance(msg, bmp.BMPRouteMonitoring):
                     print_BMPRouteMonitoring(msg, addr)
                 elif isinstance(msg, bmp.BMPPeerDownNotification):
+                    now_t = time.strftime("%Y/%m/%d %H:%M:%S", time.localtime())
                     print "%s | %s %s | BGP_PeerDown" % (
-                           addr[0], msg.peer_as, msg.peer_bgp_id)
+                           now_t, msg.peer_as, msg.peer_bgp_id)
 
     print "End BMP session!! [%s]"%addr[0]
     sock.close()

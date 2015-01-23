@@ -9,6 +9,8 @@ bgp_opts = []
 
 bgp_opts.append(cfg.StrOpt('as_number', default=[], help='as_number'))
 bgp_opts.append(cfg.StrOpt('router_id', default=[], help='router_id'))
+bgp_opts.append(cfg.StrOpt('label_range_start', default=[], help='label_range_start'))
+bgp_opts.append(cfg.StrOpt('label_range_end', default=[], help='label_range_end'))
 
 CONF = cfg.CONF
 CONF.register_cli_opts(bgp_opts, 'Bgp')
@@ -17,7 +19,7 @@ CONF.register_cli_opts(bgp_opts, 'Bgp')
 # start_bgp
 ##################
 
-def start_bgp(dpid, as_number, router_id):
+def start_bgp(dpid, as_number, router_id, label_range_start, label_range_end):
     operation = "start_bgp"
     url_path = "/openflow/" + dpid + "/bgp"
     method = "POST"
@@ -25,9 +27,11 @@ def start_bgp(dpid, as_number, router_id):
 {
 "bgp": {
 "as_number": "%s",
-"router_id": "%s"
+"router_id": "%s",
+"label_range_start": "%s",
+"label_range_end": "%s"
 }
-}'''%(as_number, router_id)
+}'''%(as_number, router_id, label_range_start, label_range_end)
 
     bgp_result = request_info(operation, url_path, method, request)
     print "----------"
@@ -46,10 +50,12 @@ def main():
         CONF(default_config_files=['OpenFlow.ini'])
         as_number = CONF.Bgp.as_number
         router_id = CONF.Bgp.router_id
+        label_range_start = CONF.Bgp.label_range_start
+        label_range_end = CONF.Bgp.label_range_end
     except cfg.ConfigFilesNotFoundError:
         print "Error: Not Found <OpenFlow.ini> "
 
-    start_bgp(dpid, as_number, router_id)
+    start_bgp(dpid, as_number, router_id, label_range_start, label_range_end)
 
 if __name__ == "__main__":
     main()

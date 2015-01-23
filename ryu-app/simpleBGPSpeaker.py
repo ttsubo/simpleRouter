@@ -79,12 +79,14 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
                                                     remote_as)
 
 
-    def start_bgpspeaker(self, asNum, routerId):
+    def start_bgpspeaker(self, asNum, routerId, label_start, label_end):
         self.myRouterId = routerId
+        self.labelRange = tuple([label_start, label_end])
         self.speaker = BGPSpeaker(as_number=asNum, router_id=routerId,
                      best_path_change_handler=self.dump_remote_best_path_change,
                      peer_down_handler=self.detect_peer_down,
-                     peer_up_handler=self.detect_peer_up)
+                     peer_up_handler=self.detect_peer_up,
+                     label_range=self.labelRange)
 
 
     def start_bmpclient(self, address, port):

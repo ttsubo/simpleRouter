@@ -136,11 +136,13 @@ class OpenflowRouter(SimpleRouter):
         super(OpenflowRouter, self).packet_in_handler(ev)
 
 
-    def start_bgpspeaker(self, dpid, as_number, router_id):
+    def start_bgpspeaker(self, dpid, as_number, router_id, label_range_start, label_range_end):
         if as_number:
             asNum = int(as_number)
+            label_start = int(label_range_start)
+            label_end = int(label_range_end)
         LOG.debug("start BGPSpeaker [%s, %s]"%(as_number, router_id))
-        self.bgps.start_bgpspeaker(asNum, router_id)
+        self.bgps.start_bgpspeaker(asNum, router_id, label_start, label_end)
 
 
     def start_bmpclient(self, dpid, address, port):
@@ -606,12 +608,16 @@ class RouterController(ControllerBase):
         simpleRouter = self.router_spp
         as_number = bgp_param['bgp']['as_number']
         router_id = bgp_param['bgp']['router_id']
-        simpleRouter.start_bgpspeaker(dpid, as_number, router_id)
+        label_range_start = bgp_param['bgp']['label_range_start']
+        label_range_end = bgp_param['bgp']['label_range_end']
+        simpleRouter.start_bgpspeaker(dpid, as_number, router_id, label_range_start, label_range_end)
         return {
             'id': '%016d' % dpid,
             'bgp': {
                 'as_number': '%s' % as_number,
                 'router_id': '%s' % router_id,
+                'label_range_start': '%s' % label_range_start,
+                'label_range_end': '%s' % label_range_end,
             }
         }
 

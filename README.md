@@ -289,15 +289,17 @@ You should assign internal ports as following.
 (2) Configure BGP Information through RESTful as follows  
     Caution: the dpid is fixed value as "0000000000000001"
 
-	$ curl -s -X POST -d '{"bgp": {"as_number": "65011", "router_id": "10.0.1.3"}}' http://localhost:8080/openflow/0000000000000001/bgp | python -mjson.tool
+	$ curl -s -X POST -d '{"bgp": {"as_number": "65011", "router_id": "10.0.1.3", "label_range_start": "100", "label_range_end": "199"}}' http://localhost:8080/openflow/0000000000000001/bgp | python -mjson.tool
 
 you will catch http response as bellow
 
 	{
 	    "bgp": {
-	        "router_id": "10.0.1.3", 
-	        "as_number": "65011"
-	    }, 
+	        "as_number": "65011",
+	        "label_range_end": "199",
+	        "label_range_start": "100",
+	        "router_id": "10.0.1.3"
+	    },
 	    "id": "0000000000000001"
 	}
 
@@ -553,12 +555,21 @@ you will catch http response as bellow
 
 	$ cd simpleRouter/other/
 	$ python sample_bmpServer.py 
-	Start BMP session!! [192.168.0.100]
-	192.168.183.218 | 2015/01/19 18:30:14 65011 10.0.1.3 | BGP_PeerUp
-	192.168.183.218 | 2015/01/19 18:30:44 65011 10.0.1.3 | BGP_Update(del_prefix:65010:101:192.168.100.1    )
-	192.168.183.218 | 2015/01/19 18:26:54 65010 10.0.0.3 | BGP_PeerUp
-	192.168.183.218 | 2015/01/19 18:26:55 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.1.0      , nexthop:192.168.101.102)
-	192.168.183.218 | 2015/01/19 18:26:55 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.2.0      , nexthop:192.168.101.102)
-	192.168.183.218 | 2015/01/19 18:27:37 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:0.0.0.0          , nexthop:192.168.101.102)
+	Start BMP session!! [192.168.183.218]
+	192.168.183.218 | 2015/01/23 11:37:02 65010 10.0.0.3 | BGP_PeerUp
+	192.168.183.218 | 2015/01/23 11:37:17 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.1.0, nexthop:192.168.101.101)
+	192.168.183.218 | 2015/01/23 11:37:17 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:10.10.10.2, nexthop:192.168.101.101)
+	192.168.183.218 | 2015/01/23 11:37:17 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.202.0, nexthop:192.168.101.101)
+	192.168.183.218 | 2015/01/23 11:37:17 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.201.0, nexthop:192.168.101.101)
+	192.168.183.218 | 2015/01/23 11:37:17 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.1.0, nexthop:192.168.101.101)
+	192.168.183.218 | 2015/01/23 11:37:17 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:10.10.10.1, nexthop:192.168.101.101)
+	192.168.183.218 | ------------------- 65010 10.0.0.3 | BGP_PeerDown
+	192.168.183.218 | 2015/01/23 11:39:26 65010 10.0.0.3 | BGP_PeerUp
+	192.168.183.218 | 2015/01/23 11:39:27 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.1.0, nexthop:192.168.101.101)
+	192.168.183.218 | 2015/01/23 11:39:27 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.1.0, nexthop:192.168.101.101)
+	192.168.183.218 | 2015/01/23 11:39:27 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.202.0, nexthop:192.168.101.101)
+	192.168.183.218 | 2015/01/23 11:39:27 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:10.10.10.1, nexthop:192.168.101.101)
+	192.168.183.218 | 2015/01/23 11:39:27 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:10.10.10.2, nexthop:192.168.101.101)
+	192.168.183.218 | 2015/01/23 11:39:27 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.201.0, nexthop:192.168.101.101)
 
 

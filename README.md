@@ -60,7 +60,7 @@ For example:
 
 
 ### Get the simpleRouter code from github
-Get [simpleRouter v0.3](https://github.com/ttsubo/simpleRouter/releases/tag/v0.3) and deploy the code in your LinuxBox. 
+Get [simpleRouter v0.5](https://github.com/ttsubo/simpleRouter/releases/tag/v0.5) and deploy the code in your LinuxBox. 
 
 
 ### OpenvSwitch installation

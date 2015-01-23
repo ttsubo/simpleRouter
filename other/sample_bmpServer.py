@@ -1,4 +1,4 @@
-# Copyright (c) 2014 ttsubo
+# Copyright (c) 2014-2015 ttsubo
 # This software is released under the MIT License.
 # http://opensource.org/licenses/mit-license.php
 
@@ -10,6 +10,7 @@ import eventlet
 eventlet.monkey_patch()
 
 from ryu.lib.packet import bmp
+from ryu.lib.packet import bgp
 from ryu.lib import hub
 from ryu.lib.hub import StreamServer
 log = logging.getLogger()
@@ -47,10 +48,32 @@ def print_global(msg, addr):
     else:
         nlri = msg.bgp_update.nlri[0]
         prefix = nlri.addr +'/' + str(nlri.length)
-        nhop = msg.bgp_update.path_attributes[0]
-        nexthop = nhop.value 
-        print "%s | %s %s %s | BGP_Update(add_prefix:%-18s, nexthop:%-15s)" % (
-               addr[0], bgp_t, peer_as, peer_bgp_id, prefix, nexthop)
+        for data in msg.bgp_update.path_attributes:
+            if isinstance(data, bgp.BGPPathAttributeNextHop):
+                nexthop = data.value 
+                print "%s | %s %s %s | BGP_Update(add_prefix:%-18s, nexthop:%-15s)" % (addr[0], bgp_t, peer_as, peer_bgp_id, prefix, nexthop)
+
+
+def print_l3vpn(msg, addr):
+    peer_as = msg.peer_as
+    peer_bgp_id = msg.peer_bgp_id
+    bgp_t = time.strftime("%Y/%m/%d %H:%M:%S",
+                           time.localtime(int(msg.timestamp)))
+    for data in msg.bgp_update.path_attributes:
+        if isinstance(data, bgp.BGPPathAttributeMpUnreachNLRI):
+            del_nlri = data.withdrawn_routes[0]
+            routeDist = str(del_nlri.addr[1].admin)+':'+str(del_nlri.addr[1].assigned)
+            del_vpnv4_prefix = routeDist + ':' + del_nlri.addr[2]
+            print "%s | %s %s %s | BGP_Update(del_prefix:%s)" % (
+                   addr[0], bgp_t, peer_as, peer_bgp_id, del_vpnv4_prefix)
+        elif isinstance(data, bgp.BGPPathAttributeMpReachNLRI):
+            nlri = data.nlri[0]
+            routeDist = str(nlri.addr[1].admin)+':'+str(nlri.addr[1].assigned)
+            vpnv4_prefix = routeDist + ':' + nlri.addr[2]
+            nexthop = data.next_hop
+            print "%s | %s %s %s | BGP_Update(add_prefix:%s, nexthop:%s)" % (
+                   addr[0], bgp_t, peer_as, peer_bgp_id, vpnv4_prefix, nexthop)
+
 
 def handler(sock, addr):
     buf = bytearray()

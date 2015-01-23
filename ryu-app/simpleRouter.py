@@ -1,4 +1,4 @@
-# Copyright (c) 2014 ttsubo
+# Copyright (c) 2014-2015 ttsubo
 # This software is released under the MIT License.
 # http://opensource.org/licenses/mit-license.php
 
@@ -31,17 +31,17 @@ logging.basicConfig()
 
 
 class PortTable(object):
-    def __init__(self, routerPort, routerIpAddr, routerMacAddr):
+    def __init__(self, routerPort, routerIpAddr, routerMacAddr, routeDist):
         self.routerPort = routerPort
         self.routerIpAddr = routerIpAddr
         self.routerMacAddr = routerMacAddr
+        self.routeDist = routeDist
 
     def get_ip(self):
         return self.routerIpAddr
 
     def get_all(self):
-        return self.routerIpAddr, self.routerMacAddr, self.routerPort
-
+        return self.routerIpAddr, self.routerMacAddr, self.routerPort, self.routeDist
 
 class ArpTable(object):
     def __init__(self, hostIpAddr, hostMacAddr, routerPort):
@@ -67,6 +67,19 @@ class RoutingTable(object):
         return self.prefix, self.nextHopIpAddr
 
 
+class MplsTable(object):
+    def __init__(self, routeDist, prefix, label, destIpAddr, netMask, nextHopIpAddr):
+        self.routeDist = routeDist
+        self.prefix = prefix
+        self.label = label
+        self.destIpAddr = destIpAddr
+        self.netMask = netMask
+        self.nextHopIpAddr = nextHopIpAddr
+
+    def get_mpls(self):
+        return self.routeDist, self.prefix, self.label, self.nextHopIpAddr
+
+
 class SimpleRouter(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -76,6 +89,7 @@ class SimpleRouter(app_manager.RyuApp):
         self.portInfo = {}
         self.arpInfo = {}
         self.routingInfo = {}
+        self.mplsInfo = {}
 
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -257,7 +271,7 @@ class SimpleRouter(app_manager.RyuApp):
         dstMac = etherFrame.src
 
         for portNo, port in self.portInfo.items():
-            (routerIpAddr, routerMacAddr, routerPort) = port.get_all()
+            (routerIpAddr, routerMacAddr, routerPort, routeDist) = port.get_all()
             if arp_dstIp == routerIpAddr:
                 srcMac = routerMacAddr
                 outPort = portNo
@@ -295,9 +309,9 @@ class SimpleRouter(app_manager.RyuApp):
         return 0
 
 
-    def send_arp(self, datapath, opcode, srcMac, srcIp, dstMac, dstIp, outPort):
+    def send_arp(self, datapath, opcode, srcMac, srcIp, dstMac, dstIp, outPort, RouteDist=None):
         if opcode == 1:
-            self.portInfo[outPort] = PortTable(outPort, srcIp, srcMac)
+            self.portInfo[outPort] = PortTable(outPort, srcIp, srcMac, RouteDist)
 
             targetMac = "00:00:00:00:00:00"
             targetIp = dstIp
@@ -353,6 +367,43 @@ class SimpleRouter(app_manager.RyuApp):
         return 0
 
 
+    def add_flow_gateway_push_mpls(self, datapath, ethertype, routeDist, label, mod_srcMac, mod_dstMac, outPort, defaultIpAddr):
+        ipaddress = IPNetwork("0.0.0.0" + '/' + "0.0.0.0")
+        prefix = str(ipaddress.cidr)
+        vpnv4_prefix = routeDist + ':' + prefix
+        LOG.debug("add MplsInfo(%s, [%s])"%(vpnv4_prefix, label))
+        self.mplsInfo[vpnv4_prefix] = MplsTable(routeDist, prefix, label,
+                                                "0.0.0.0", "0.0.0.0",
+                                                defaultIpAddr)
+
+        match = datapath.ofproto_parser.OFPMatch(eth_type=ethertype)
+        actions =[datapath.ofproto_parser.OFPActionPushMpls(0x8847),
+                datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
+                datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
+                datapath.ofproto_parser.OFPActionSetField(mpls_label=label),
+                datapath.ofproto_parser.OFPActionSetField(mpls_tc=1),
+                datapath.ofproto_parser.OFPActionOutput(outPort, 0),
+                datapath.ofproto_parser.OFPActionSetMplsTtl(255),
+                datapath.ofproto_parser.OFPActionDecMplsTtl()]
+        inst = [datapath.ofproto_parser.OFPInstructionActions(
+                datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
+        mod = datapath.ofproto_parser.OFPFlowMod(
+                cookie=0,
+                cookie_mask=0,
+                table_id=0,
+                command=datapath.ofproto.OFPFC_ADD,
+                datapath=datapath,
+                idle_timeout=0,
+                hard_timeout=0,
+                priority=0x1,
+                buffer_id=0xffffffff,
+                out_port=datapath.ofproto.OFPP_ANY,
+                out_group=datapath.ofproto.OFPG_ANY,
+                match=match,
+                instructions=inst)
+        datapath.send_msg(mod)
+
+
     def add_flow_route(self, datapath, ethertype, mod_dstIp, mod_dstMask, mod_srcMac, mod_dstMac, outPort, nexthop):
         ipaddress = IPNetwork(mod_dstIp + '/' + mod_dstMask)
         prefix = str(ipaddress.cidr)
@@ -388,6 +439,112 @@ class SimpleRouter(app_manager.RyuApp):
         return 0
 
 
+    def add_flow_mpls(self, datapath, label, mod_srcMac, mod_dstMac, outPort):
+        match = datapath.ofproto_parser.OFPMatch(
+                eth_type=0x8847,
+                mpls_label=label)
+        actions =[datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
+                datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
+                datapath.ofproto_parser.OFPActionOutput(outPort, 0),
+                datapath.ofproto_parser.OFPActionDecMplsTtl()]
+        inst = [datapath.ofproto_parser.OFPInstructionActions(
+                datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
+        mod = datapath.ofproto_parser.OFPFlowMod(
+                cookie=0,
+                cookie_mask=0,
+                table_id=0,
+                command=datapath.ofproto.OFPFC_ADD,
+                datapath=datapath,
+                idle_timeout=0,
+                hard_timeout=0,
+                priority=0xff,
+                buffer_id=0xffffffff,
+                out_port=datapath.ofproto.OFPP_ANY,
+                out_group=datapath.ofproto.OFPG_ANY,
+                match=match,
+                instructions=inst)
+        datapath.send_msg(mod)
+
+
+    def add_flow_push_mpls(self, datapath, ethertype, routeDist, label, mod_dstIp, mod_dstMask, mod_srcMac, mod_dstMac, outPort, nexthop):
+
+        ipaddress = IPNetwork(mod_dstIp + '/' + mod_dstMask)
+        prefix = str(ipaddress.cidr)
+        vpnv4_prefix = routeDist + ':' + prefix
+        if nexthop is None:
+            nexthop = "0.0.0.0"
+        LOG.debug("add MplsInfo(%s, [%s])"%(vpnv4_prefix, label))
+        self.mplsInfo[vpnv4_prefix] = MplsTable(routeDist, prefix, label,
+                                                mod_dstIp, mod_dstMask, nexthop)
+
+        match = datapath.ofproto_parser.OFPMatch(
+                eth_type=ethertype,
+                ipv4_dst=(mod_dstIp, mod_dstMask))
+        actions =[datapath.ofproto_parser.OFPActionPushMpls(0x8847),
+                datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
+                datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
+                datapath.ofproto_parser.OFPActionSetField(mpls_label=label),
+                datapath.ofproto_parser.OFPActionSetField(mpls_tc=1),
+                datapath.ofproto_parser.OFPActionOutput(outPort, 0),
+                datapath.ofproto_parser.OFPActionSetMplsTtl(255),
+                datapath.ofproto_parser.OFPActionDecMplsTtl()]
+        inst = [datapath.ofproto_parser.OFPInstructionActions(
+                datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
+        mod = datapath.ofproto_parser.OFPFlowMod(
+                cookie=0,
+                cookie_mask=0,
+                table_id=0,
+                command=datapath.ofproto.OFPFC_ADD,
+                datapath=datapath,
+                idle_timeout=0,
+                hard_timeout=0,
+                priority=0xf,
+                buffer_id=0xffffffff,
+                out_port=datapath.ofproto.OFPP_ANY,
+                out_group=datapath.ofproto.OFPG_ANY,
+                match=match,
+                instructions=inst)
+        datapath.send_msg(mod)
+
+
+    def add_flow_pop_mpls(self, datapath, ethertype, routeDist, label, mod_dstIp, mod_dstMask, mod_srcMac, mod_dstMac, outPort, nexthop):
+
+        ipaddress = IPNetwork(mod_dstIp + '/' + mod_dstMask)
+        prefix = str(ipaddress.cidr)
+        vpnv4_prefix = routeDist + ':' + prefix
+        if nexthop is None:
+            nexthop = "0.0.0.0"
+        LOG.debug("add MplsInfo(%s, [%s])"%(vpnv4_prefix, label))
+        self.mplsInfo[vpnv4_prefix] = MplsTable(routeDist, prefix, label,
+                                                mod_dstIp, mod_dstMask, nexthop)
+
+        match = datapath.ofproto_parser.OFPMatch(
+                eth_type=0x8847,
+                mpls_label=label)
+        actions =[datapath.ofproto_parser.OFPActionPopMpls(ethertype),
+                datapath.ofproto_parser.OFPActionSetField(eth_src=mod_srcMac),
+                datapath.ofproto_parser.OFPActionSetField(eth_dst=mod_dstMac),
+                datapath.ofproto_parser.OFPActionOutput(outPort, 0),
+                datapath.ofproto_parser.OFPActionDecNwTtl()]
+        inst = [datapath.ofproto_parser.OFPInstructionActions(
+                datapath.ofproto.OFPIT_APPLY_ACTIONS, actions)]
+        mod = datapath.ofproto_parser.OFPFlowMod(
+                cookie=0,
+                cookie_mask=0,
+                table_id=0,
+                command=datapath.ofproto.OFPFC_ADD,
+                datapath=datapath,
+                idle_timeout=0,
+                hard_timeout=0,
+                priority=0xe,
+                buffer_id=0xffffffff,
+                out_port=datapath.ofproto.OFPP_ANY,
+                out_group=datapath.ofproto.OFPG_ANY,
+                match=match,
+                instructions=inst)
+        datapath.send_msg(mod)
+
+
     def remove_flow_route(self, datapath, ethertype, dstIp, dstMask):
         ipaddress = IPNetwork(dstIp + '/' + dstMask)
         prefix = str(ipaddress.cidr)
@@ -397,6 +554,63 @@ class SimpleRouter(app_manager.RyuApp):
         match = datapath.ofproto_parser.OFPMatch(
                 eth_type=ethertype,
                 ipv4_dst=(dstIp, dstMask))
+        inst = []
+        mod = datapath.ofproto_parser.OFPFlowMod(
+                command=datapath.ofproto.OFPFC_DELETE_STRICT,
+                datapath=datapath,
+                priority=0xf,
+                out_port=datapath.ofproto.OFPP_ANY,
+                out_group=datapath.ofproto.OFPG_ANY,
+                match=match,
+                instructions=inst)
+        datapath.send_msg(mod)
+        return 0
+
+
+    def remove_flow_push_mpls(self, datapath, label, mod_dstIp, mod_dstMask, vpnv4_prefix):
+        LOG.debug("delete MplsInfo(%s, [%s])"%(vpnv4_prefix, label))
+        self.mplsInfo.pop(vpnv4_prefix)
+
+        match = datapath.ofproto_parser.OFPMatch(
+                eth_type=0x0800,
+                ipv4_dst=(mod_dstIp, mod_dstMask))
+        inst = []
+        mod = datapath.ofproto_parser.OFPFlowMod(
+                command=datapath.ofproto.OFPFC_DELETE_STRICT,
+                datapath=datapath,
+                priority=0xf,
+                out_port=datapath.ofproto.OFPP_ANY,
+                out_group=datapath.ofproto.OFPG_ANY,
+                match=match,
+                instructions=inst)
+        datapath.send_msg(mod)
+        return 0
+
+
+    def remove_flow_pop_mpls(self, datapath, vpnv4_prefix, label):
+        LOG.debug("delete MplsInfo(%s, [%s])"%(vpnv4_prefix, label))
+        self.mplsInfo.pop(vpnv4_prefix)
+
+        match = datapath.ofproto_parser.OFPMatch(
+                eth_type=0x8847,
+                mpls_label=label)
+        inst = []
+        mod = datapath.ofproto_parser.OFPFlowMod(
+                command=datapath.ofproto.OFPFC_DELETE_STRICT,
+                datapath=datapath,
+                priority=0xf,
+                out_port=datapath.ofproto.OFPP_ANY,
+                out_group=datapath.ofproto.OFPG_ANY,
+                match=match,
+                instructions=inst)
+        datapath.send_msg(mod)
+        return 0
+
+
+    def remove_flow_mpls(self, datapath, label):
+        match = datapath.ofproto_parser.OFPMatch(
+                eth_type=0x8847,
+                mpls_label=label)
         inst = []
         mod = datapath.ofproto_parser.OFPFlowMod(
                 command=datapath.ofproto.OFPFC_DELETE_STRICT,

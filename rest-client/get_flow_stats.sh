@@ -23,7 +23,7 @@ def start_get_flowstats(dpid):
     print "+++++++++++++++++++++++++++++++"
 
 
-    print "destination        packets    bytes"
+    print "destination(label) packets    bytes"
     print "------------------ ---------- ----------"
     for a in range(len(flowstats_list['stats'])):
         ipv4Dst[a] = flowstats_list['stats'][a]['ipv4Dst']

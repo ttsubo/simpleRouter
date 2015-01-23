@@ -1,4 +1,4 @@
-# Copyright (c) 2014 ttsubo
+# Copyright (c) 2014-2015 ttsubo
 # This software is released under the MIT License.
 # http://opensource.org/licenses/mit-license.php
 
@@ -49,9 +49,11 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         prefixInfo = IPNetwork(event.prefix)
 
         remote_prefix['remote_as'] = event.remote_as
+        remote_prefix['route_dist'] = event.route_dist
         remote_prefix['prefix'] = str(prefixInfo.ip)
         remote_prefix['netmask'] = str(prefixInfo.netmask)
         remote_prefix['nexthop'] = event.nexthop
+        remote_prefix['label'] = event.label
         remote_prefix['withdraw'] = event.is_withdraw
         LOG.debug("remote_prefix=%s"%remote_prefix)
         self.bgp_q.put(remote_prefix)
@@ -77,12 +79,14 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
                                                     remote_as)
 
 
-    def start_bgpspeaker(self, asNum, routerId):
+    def start_bgpspeaker(self, asNum, routerId, label_start, label_end):
         self.myRouterId = routerId
+        self.labelRange = tuple([label_start, label_end])
         self.speaker = BGPSpeaker(as_number=asNum, router_id=routerId,
                      best_path_change_handler=self.dump_remote_best_path_change,
                      peer_down_handler=self.detect_peer_down,
-                     peer_up_handler=self.detect_peer_up)
+                     peer_up_handler=self.detect_peer_up,
+                     label_range=self.labelRange)
 
 
     def start_bmpclient(self, address, port):
@@ -95,7 +99,7 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
 
     def add_neighbor(self, peerIp, asNumber, med, localPref, filterAsNum):
         self.speaker.neighbor_add(peerIp, asNumber, is_next_hop_self=True,
-                                  multi_exit_disc=med)
+                                  enable_vpnv4=True, multi_exit_disc=med)
         if filterAsNum:
             as_path_filter = ASPathFilter(filterAsNum,
                                           policy=ASPathFilter.POLICY_TOP)
@@ -107,24 +111,54 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
                                                route_family='ipv4')
 
 
-    def add_prefix(self, ipaddress, netmask, nexthop=""):
+    def add_vrf(self, routeDist, importList, exportList):
+        self.speaker.vrf_add(routeDist, importList, exportList)
+
+
+    def del_vrf(self, routeDist):
+        self.speaker.vrf_del(routeDist)
+
+
+    def add_prefix(self, ipaddress, netmask, nexthop=None, routeDist=None):
         prefix = IPNetwork(ipaddress + '/' + netmask)
         local_prefix = str(prefix.cidr)
-        if nexthop:
-            LOG.info("Send BGP UPDATE Message [%s, %s]"%(local_prefix, nexthop))
-            self.speaker.prefix_add(local_prefix, nexthop)
-        else:
-            LOG.info("Send BGP UPDATE Message [%s]"%local_prefix)
-            self.speaker.prefix_add(local_prefix)
 
-    def remove_prefix(self, ipaddress, netmask):
+        if routeDist:
+            if nexthop:
+                LOG.info("Send BGP UPDATE Message [%s, %s]"%(local_prefix,
+                          nexthop))
+            else:
+                LOG.info("Send BGP UPDATE Message [%s]"%local_prefix)
+                nexthop = "0.0.0.0"
+            result_list = self.speaker.prefix_add(local_prefix, nexthop,
+                                                  routeDist)
+            result = result_list[0]
+            label = result['label']
+            return label
+        else:
+            if nexthop:
+                LOG.info("Send BGP UPDATE Message [%s, %s]"%(local_prefix,
+                          nexthop))
+                self.speaker.prefix_add(local_prefix, nexthop)
+            else:
+                LOG.info("Send BGP UPDATE Message [%s]"%local_prefix)
+                self.speaker.prefix_add(local_prefix)
+
+
+    def remove_prefix(self, ipaddress, netmask, routeDist=None):
         prefix = IPNetwork(ipaddress + '/' + netmask)
         local_prefix = str(prefix.cidr)
 
         LOG.info("Send BGP UPDATE(withdraw) Message [%s]"%local_prefix)
-        self.speaker.prefix_del(local_prefix)
+        self.speaker.prefix_del(local_prefix, routeDist)
+
 
     def show_rib(self):
         family ="ipv4"
         format = "cli"
         return self.speaker.rib_get(family, format)
+
+
+    def show_vrfs(self):
+        format = "cli"
+        return self.speaker.vrfs_get(format)

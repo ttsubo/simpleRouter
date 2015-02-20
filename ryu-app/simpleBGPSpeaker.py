@@ -154,7 +154,7 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
 
 
     def show_rib(self):
-        family ="ipv4"
+        family ="vpnv4"
         format = "cli"
         return self.speaker.rib_get(family, format)
 
@@ -162,3 +162,8 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
     def show_vrfs(self):
         format = "cli"
         return self.speaker.vrfs_get(format)
+
+
+    def show_neighbor(self, routetype, address):
+        format = "cli"
+        return self.speaker.neighbor_get(routetype, address, format)

@@ -42,12 +42,12 @@ def print_global(msg, addr):
 
     if msg.bgp_update.withdrawn_routes:
         del_nlri = msg.bgp_update.withdrawn_routes[0]
-        del_prefix = del_nlri.addr +'/' + str(del_nlri.length)
+        del_prefix = del_nlri.prefix
         print "%s | %s %s %s | BGP_Update(del_prefix:%-18s)" % (
                addr[0], bgp_t, peer_as, peer_bgp_id, del_prefix)
     else:
         nlri = msg.bgp_update.nlri[0]
-        prefix = nlri.addr +'/' + str(nlri.length)
+        prefix = nlri.prefix
         for data in msg.bgp_update.path_attributes:
             if isinstance(data, bgp.BGPPathAttributeNextHop):
                 nexthop = data.value 
@@ -62,14 +62,14 @@ def print_l3vpn(msg, addr):
     for data in msg.bgp_update.path_attributes:
         if isinstance(data, bgp.BGPPathAttributeMpUnreachNLRI):
             del_nlri = data.withdrawn_routes[0]
-            routeDist = str(del_nlri.addr[1].admin)+':'+str(del_nlri.addr[1].assigned)
-            del_vpnv4_prefix = routeDist + ':' + del_nlri.addr[2]
+            routeDist = del_nlri.route_dist
+            del_vpnv4_prefix = del_nlri.formatted_nlri_str
             print "%s | %s %s %s | BGP_Update(del_prefix:%s)" % (
                    addr[0], bgp_t, peer_as, peer_bgp_id, del_vpnv4_prefix)
         elif isinstance(data, bgp.BGPPathAttributeMpReachNLRI):
             nlri = data.nlri[0]
-            routeDist = str(nlri.addr[1].admin)+':'+str(nlri.addr[1].assigned)
-            vpnv4_prefix = routeDist + ':' + nlri.addr[2]
+            routeDist = nlri.route_dist
+            vpnv4_prefix = nlri.formatted_nlri_str
             nexthop = data.next_hop
             print "%s | %s %s %s | BGP_Update(add_prefix:%s, nexthop:%s)" % (
                    addr[0], bgp_t, peer_as, peer_bgp_id, vpnv4_prefix, nexthop)

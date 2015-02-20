@@ -2,7 +2,6 @@
 #-*- coding: utf-8 -*-
 
 import json
-import sys
 import time
 from oslo.config import cfg
 from common_func import request_info

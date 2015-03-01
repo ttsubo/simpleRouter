@@ -60,7 +60,7 @@ For example:
 
 
 ### Get the simpleRouter code from github
-Get [simpleRouter v0.5](https://github.com/ttsubo/simpleRouter/releases/tag/v0.5) and deploy the code in your LinuxBox. 
+Get [simpleRouter v0.6](https://github.com/ttsubo/simpleRouter/releases/tag/v0.6) and deploy the code in your LinuxBox. 
 
 
 ### OpenvSwitch installation
@@ -282,7 +282,7 @@ You should assign internal ports as following.
 ### STEP3: Starting simpleRouter
 (1) You can Start simpleRouter.
 
-	$ cd simpleRouter-0.3/ryu-app/
+	$ cd simpleRouter-0.6/ryu-app/
 	$ sudo ryu-manager --log-config-file logging.conf openflowRouter.py
 
 
@@ -385,7 +385,7 @@ These scripts are useful for checking simpleRouter as bellow.
 
 (1) Check Port Information  
 
-	$ cd simpleRouter-0.3/rest-client
+	$ cd simpleRouter-0.6/rest-client
 	$ ./get_interface.sh 
 	======================================================================
 	get_interface
@@ -394,21 +394,21 @@ These scripts are useful for checking simpleRouter as bellow.
 	----------
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
-	header: Content-Length: 408
-	header: Date: Mon, 19 Jan 2015 05:47:32 GMT
+	header: Content-Length: 399
+	header: Date: Fri, 20 Feb 2015 05:15:19 GMT
 	+++++++++++++++++++++++++++++++
-	2015/01/19 14:47:32 : PortTable
+	2015/02/20 14:15:19 : PortTable
 	+++++++++++++++++++++++++++++++
 	portNo   IpAddress       MacAddress        RouteDist
 	-------- --------------- ----------------- ---------
-	       1 192.168.105.102 ee:14:28:ab:49:77 
-	       2 192.168.106.102 2a:04:c1:10:55:1e 
-	       3 192.168.100.101 00:00:00:00:00:01 65010:101
+	       1 192.168.101.102 4a:6e:0e:de:27:54 
+	       2 192.168.104.101 ea:65:4c:20:a0:0f 
+	       3 192.168.105.101 fa:f4:2b:84:89:c4 
 
 
 (2) Check Arp Information  
 
-	$ cd simpleRouter-0.3/rest-client
+	$ cd simpleRouter-0.6/rest-client
 	$ ./get_arp.sh 
 	======================================================================
 	get_arp
@@ -417,49 +417,49 @@ These scripts are useful for checking simpleRouter as bellow.
 	----------
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
-	header: Content-Length: 416
-	header: Date: Mon, 19 Jan 2015 05:49:18 GMT
+	header: Content-Length: 506
+	header: Date: Fri, 20 Feb 2015 05:13:14 GMT
 	+++++++++++++++++++++++++++++++
-	2015/01/19 14:49:18 : ArpTable 
+	2015/02/20 14:13:14 : ArpTable 
 	+++++++++++++++++++++++++++++++
 	portNo   MacAddress        IpAddress
 	-------- ----------------- ------------
-	       1 fa:f4:2b:84:89:c4 192.168.105.101
-	       2 fe:bd:7e:9e:b3:0a 192.168.106.101
-	       3 40:6c:8f:59:31:af 192.168.100.1
-	       5 2a:04:c1:10:55:1e 192.168.106.102
+	       1 16:3f:1e:5b:32:c6 192.168.101.101
+	       2 ce:03:25:69:93:b7 192.168.104.102
+	       3 ee:14:28:ab:49:77 192.168.105.102
+	       4 4a:6e:0e:de:27:54 192.168.101.102
+	       6 fa:f4:2b:84:89:c4 192.168.105.101
 
 
-(3) Check BGP_rib(vrf) Table Information  
 
-	$ cd simpleRouter-0.3/rest-client
-	$ ./get_vrf.sh 
+(3) Check BGP_rib Table Information  
+
+	$ cd simpleRouter-0.6/rest-client
+        $ ./get_rib.sh 
 	======================================================================
-	get_vrf
+	get_rib
 	======================================================================
-	/openflow/0000000000000001/vrf
+	/openflow/0000000000000001/rib
 	----------
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
-	header: Content-Length: 809
-	header: Date: Mon, 19 Jan 2015 05:51:31 GMT
+	header: Content-Length: 459
+	header: Date: Fri, 20 Feb 2015 05:00:05 GMT
 	+++++++++++++++++++++++++++++++
-	2015/01/19 14:51:31 : Show vrf 
+	2015/02/20 14:00:05 : Show rib 
 	+++++++++++++++++++++++++++++++
 	Status codes: * valid, > best
 	Origin codes: i - IGP, e - EGP, ? - incomplete
 	     Network                          Labels   Next Hop             Reason          Metric LocPrf Path
-	VPN: ('65010:101', 'ipv4')
-	 *>  192.168.2.0/30                   None     192.168.105.101      Only Path       100    100    65010 ?
-	 *>  192.168.100.1/32                 None     0.0.0.0              Only Path                     ?
-	 *>  0.0.0.0/0                        None     192.168.105.101      Only Path       100    100    65010 65001 ?
-	 *>  192.168.200.0/24                 None     192.168.100.1        Only Path                     ?
-	 *>  192.168.1.0/30                   None     192.168.105.101      Only Path       100    100    65010 ?
+	 *>  65010:101:192.168.201.101/32     [1000]   192.168.101.101      Only Path       100           65010 ?
+	 *>  65010:101:192.168.100.1/32       [300]    192.168.105.102      Only Path              100    ?
 
 
-(4) Check Routing Information  
 
-	$ cd simpleRouter-0.3/rest-client
+
+(4) Check Routing Table Information  
+
+	$ cd simpleRouter-0.6/rest-client
 	$ ./get_mpls.sh 
 	======================================================================
 	get_mpls
@@ -468,48 +468,50 @@ These scripts are useful for checking simpleRouter as bellow.
 	----------
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
-	header: Content-Length: 868
-	header: Date: Mon, 19 Jan 2015 05:54:06 GMT
+	header: Content-Length: 410
+	header: Date: Fri, 20 Feb 2015 05:04:03 GMT
 	+++++++++++++++++++++++++++++++
-	2015/01/19 14:54:06 : MplsTable 
+	2015/02/20 14:04:03 : MplsTable 
 	+++++++++++++++++++++++++++++++
 	routeDist  prefix             nexthop          label
 	---------- ------------------ ---------------- -----
-	65010:101  0.0.0.0/0          192.168.105.101  19   
-	65010:101  192.168.1.0/30     192.168.105.101  26   
-	65010:101  192.168.100.1/32   0.0.0.0          101  
-	65010:101  192.168.2.0/30     192.168.105.101  20   
-	65010:101  192.168.200.0/24   192.168.100.1    100 
+	65010:101  192.168.100.1/32   192.168.105.102  300  
+	65010:101  192.168.201.101/32 192.168.101.101  1000
 
 
-(5) Check FlowStats Information  
+(5) Check BGP_neighbor Table Information  
 
-	$ cd simpleRouter-0.3/rest-client
-	$ ./get_flow_stats.sh 
+	$ cd simpleRouter-0.6/rest-client
+	$ ./get_neighbor.sh 
 	======================================================================
-	get_flowstats
+	get_neighbor
 	======================================================================
-	/openflow/0000000000000001/stats/flow
+	/openflow/0000000000000001/neighbor
+	
+	{
+	"neighbor": {
+	"routetype": "received-routes",
+	"address": "192.168.101.101"
+	}
+	}
 	----------
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
-	header: Content-Length: 338
-	header: Date: Mon, 19 Jan 2015 05:56:03 GMT
+	header: Content-Length: 366
+	header: Date: Fri, 20 Feb 2015 05:08:45 GMT
 	+++++++++++++++++++++++++++++++
-	2015/01/19 14:56:03 : FlowStats
+	2015/02/20 14:08:45 : Show neighbor 
 	+++++++++++++++++++++++++++++++
-	destination(label) packets    bytes
-	------------------ ---------- ----------
-	100                       476      47796
-	101                        49       3846
-	0.0.0.0/0                 456      59885
-	192.168.1.0/30              0          0
-	192.168.2.0/30              0          0
+	Status codes: x filtered
+	Origin codes: i - IGP, e - EGP, ? - incomplete
+	    Timestamp           Network                          Labels   Next Hop             Metric LocPrf Path
+	    2015/02/20 04:58:52 192.168.201.101/32               None     192.168.101.101      100    None   [65010] ?
+	
 
 
 (6) Check BGP Peering UP/DOWN log Information  
 
-	$ cd simpleRouter-0.3/rest-client
+	$ cd simpleRouter-0.6/rest-client
 	$ ./get_peer_status.sh 
 	======================================================================
 	get_peer_status
@@ -518,19 +520,23 @@ These scripts are useful for checking simpleRouter as bellow.
 	----------
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
-	header: Content-Length: 829
-	header: Date: Mon, 19 Jan 2015 05:58:49 GMT
+	header: Content-Length: 1209
+	header: Date: Fri, 20 Feb 2015 05:11:03 GMT
 	+++++++++++++++++++++++++++++++
-	2015/01/19 14:58:49 : Peer Status
+	2015/02/20 14:11:02 : Peer Status
 	+++++++++++++++++++++++++++++++
 	occurTime            status    myPeer             remotePeer         asNumber
 	-------------------- --------- ------------------ ------------------ --------
-	2015/01/19 14:46:39  Peer Up   10.0.1.3           10.0.1.1           65011
-	2015/01/19 14:46:44  Peer Up   10.0.1.3           10.0.1.2           65011
-	2015/01/19 14:58:05  Peer Down 10.0.1.3           10.0.1.1           65011
-	2015/01/19 14:58:43  Peer Up   10.0.1.3           10.0.1.1           65011
-	2015/01/19 14:58:44  Peer Down 10.0.1.3           10.0.1.1           65011
-	2015/01/19 14:58:44  Peer Up   10.0.1.3           10.0.1.1           65011
+	2015/02/20 13:58:21  Peer Up   10.0.1.1           10.0.0.1           65010
+	2015/02/20 13:58:26  Peer Up   10.0.1.1           10.0.1.2           65011
+	2015/02/20 13:58:31  Peer Up   10.0.1.1           10.0.1.3           65011
+	2015/02/20 13:58:36  Peer Down 10.0.1.1           10.0.0.1           65010
+	2015/02/20 13:58:36  Peer Down 10.0.1.1           10.0.1.2           65011
+	2015/02/20 13:58:36  Peer Down 10.0.1.1           10.0.1.3           65011
+	2015/02/20 13:58:50  Peer Up   10.0.1.1           10.0.1.3           65011
+	2015/02/20 13:58:52  Peer Up   10.0.1.1           10.0.0.1           65010
+	2015/02/20 13:58:57  Peer Up   10.0.1.1           10.0.1.2           65011
+
 
 
 ### STEP5: starting BMP(BGP Monitoring Protocol)
@@ -539,14 +545,14 @@ You can start BMP client/server.
 (1) Configure BMP Information through RESTful as follows  
     Caution: the dpid is fixed value as "0000000000000001"
 
-	$ curl -s -X POST -d '{"bmp": {"port": "11019", "address": "192.168.0.100"}}' http://localhost:8080/openflow/0000000000000001/bmp | python -mjson.tool
+	$ curl -s -X POST -d '{"bmp": {"port": "11019", "address": "192.168.183.219"}}' http://localhost:8080/openflow/0000000000000001/bmp | python -mjson.tool
 
 you will catch http response as bellow
 
         {
             "bmp": {
                 "port": "11019", 
-                "address": "192.168.0.100"
+                "address": "192.168.183.219"
             }, 
             "id": "0000000000000001"
         }
@@ -556,20 +562,16 @@ you will catch http response as bellow
 	$ cd simpleRouter/other/
 	$ python sample_bmpServer.py 
 	Start BMP session!! [192.168.183.218]
-	192.168.183.218 | 2015/01/23 11:37:02 65010 10.0.0.3 | BGP_PeerUp
-	192.168.183.218 | 2015/01/23 11:37:17 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.1.0, nexthop:192.168.101.101)
-	192.168.183.218 | 2015/01/23 11:37:17 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:10.10.10.2, nexthop:192.168.101.101)
-	192.168.183.218 | 2015/01/23 11:37:17 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.202.0, nexthop:192.168.101.101)
-	192.168.183.218 | 2015/01/23 11:37:17 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.201.0, nexthop:192.168.101.101)
-	192.168.183.218 | 2015/01/23 11:37:17 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.1.0, nexthop:192.168.101.101)
-	192.168.183.218 | 2015/01/23 11:37:17 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:10.10.10.1, nexthop:192.168.101.101)
-	192.168.183.218 | ------------------- 65010 10.0.0.3 | BGP_PeerDown
-	192.168.183.218 | 2015/01/23 11:39:26 65010 10.0.0.3 | BGP_PeerUp
-	192.168.183.218 | 2015/01/23 11:39:27 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.1.0, nexthop:192.168.101.101)
-	192.168.183.218 | 2015/01/23 11:39:27 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.1.0, nexthop:192.168.101.101)
-	192.168.183.218 | 2015/01/23 11:39:27 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.202.0, nexthop:192.168.101.101)
-	192.168.183.218 | 2015/01/23 11:39:27 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:10.10.10.1, nexthop:192.168.101.101)
-	192.168.183.218 | 2015/01/23 11:39:27 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:10.10.10.2, nexthop:192.168.101.101)
-	192.168.183.218 | 2015/01/23 11:39:27 65010 10.0.0.3 | BGP_Update(add_prefix:65010:101:192.168.201.0, nexthop:192.168.101.101)
+	192.168.183.218 | 2015/02/20 14:37:38 65011 10.0.1.3 | BGP_PeerUp
+	192.168.183.218 | 2015/02/20 14:37:38 65011 10.0.1.3 | BGP_Update(add_prefix:65010:101:192.168.200.0/24, nexthop:192.168.105.102)
+	192.168.183.218 | 2015/02/20 14:37:38 65011 10.0.1.3 | BGP_Update(add_prefix:65010:101:192.168.100.1/32, nexthop:192.168.105.102)
+	192.168.183.218 | 2015/02/20 14:37:25 65011 10.0.1.2 | BGP_PeerUp
+	192.168.183.218 | 2015/02/20 14:37:20 65010 10.0.0.1 | BGP_PeerUp
+	192.168.183.218 | 2015/02/20 14:37:33 65010 10.0.0.1 | BGP_Update(add_prefix:65010:101:192.168.201.101/32, nexthop:192.168.101.101)
+	192.168.183.218 | 2015/02/20 14:38:24 65011 10.0.1.3 | BGP_Update(del_prefix:65010:101:192.168.100.1/32)
+	192.168.183.218 | ------------------- 65011 10.0.1.3 | BGP_PeerDown
+	192.168.183.218 | 2015/02/20 14:39:01 65011 10.0.1.3 | BGP_PeerUp
+	192.168.183.218 | 2015/02/20 14:39:16 65011 10.0.1.3 | BGP_Update(add_prefix:65010:101:192.168.100.1/32, nexthop:192.168.105.102)
+
 
 

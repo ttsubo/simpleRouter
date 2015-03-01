@@ -61,6 +61,10 @@ class OpenflowRouter(SimpleRouter):
         return self.bgps.show_vrfs()
 
 
+    def get_bgp_neighbor(self, routetype, address):
+        return self.bgps.show_neighbor(routetype, address)
+
+
     def redistribute_connect(self, dpid, redistribute, vrf_routeDist):
         netMask = "255.255.255.255"
         nextHopIpAddr = None
@@ -452,6 +456,16 @@ class RouterController(ControllerBase):
     @route('router', '/openflow/{dpid}/stats/port', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
     def get_portstats(self, req, dpid, **kwargs):
         result = self.getPortStats(int(dpid, 16))
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+
+    @route('router', '/openflow/{dpid}/neighbor', methods=['GET'], requirements={'dpid': dpid.DPID_PATTERN})
+    def get_bgpneighbor(self, req, dpid, **kwargs):
+        show_param = eval(req.body)
+        result = self.getBgpNeighbor(int(dpid, 16), show_param)
         message = json.dumps(result)
         return Response(status=200,
                         content_type = 'application/json',
@@ -872,6 +886,23 @@ class RouterController(ControllerBase):
           'mpls': [
             v.__dict__ for k, v in sorted(simpleRouter.mplsInfo.items())
           ]
+        }
+
+
+    def getBgpNeighbor(self, dpid, show_param):
+        simpleRouter = self.router_spp
+        routetype = show_param['neighbor']['routetype']
+        address = show_param['neighbor']['address']
+        nowtime = datetime.datetime.now()
+        LOG.info("+++++++++++++++++++++++++++++++")
+        LOG.info("%s : Show neighbor " % nowtime.strftime("%Y/%m/%d %H:%M:%S"))
+        LOG.info("+++++++++++++++++++++++++++++++")
+        result = simpleRouter.get_bgp_neighbor(routetype, address)
+        LOG.info("%s" % result)
+        return {
+          'id': '%016d' % dpid,
+          'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),
+          'neighbor': '%s' % result,
         }
 
 

@@ -11,7 +11,7 @@ PORT = "8080"
 # request_info
 ##################
 
-def request_info(operator, url_path, method, request):
+def request_info(operator, url_path, method, request=None):
     print "=" *70
     print "%s" % operator
     print "=" *70
@@ -21,20 +21,22 @@ def request_info(operator, url_path, method, request):
         "Content-Type": "application/json"
         }
     if method == "GET":
-        print url_path
-        session.request("GET", url_path, "", header)
+        if request:
+            print url_path
+            print request
+            session.request("GET", url_path, request, header)
+        else:
+            print url_path
+            session.request("GET", url_path, "", header)
     elif method == "POST":
-        request = request
         print url_path
         print request
         session.request("POST", url_path, request, header)
     elif method == "PUT":
-        request = request
         print url_path
         print request
         session.request("PUT", url_path, request, header)
     elif method == "DELETE":
-        request = request
         print url_path
         print request
         session.request("DELETE", url_path, request, header)

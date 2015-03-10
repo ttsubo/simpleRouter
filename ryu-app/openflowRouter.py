@@ -34,6 +34,7 @@ class OpenflowRouter(SimpleRouter):
         wsgi = kwargs['wsgi']
         wsgi.register(RouterController, {'OpenFlowRouter' : self})
         self.bgp_thread = hub.spawn(self.update_remotePrefix)
+        self.arp_thread = hub.spawn(self.send_arpRequest)
 
 
     def register_localPrefix(self, dpid, destIpAddr, netMask, nextHopIpAddr,
@@ -129,6 +130,26 @@ class OpenflowRouter(SimpleRouter):
             hub.sleep(1)
 
 
+    def send_arpRequest(self):
+        dpid = 1
+        while True:
+            try:
+                datapath = self.monitor.datapaths[dpid]
+                for arp in self.arpInfo.values():
+                    (hostIp, hostMac, inPort) = arp.get_all()
+
+                    for port in self.portInfo.values():
+                        (routerIp, routerMac, port, routeDist) = port.get_all()
+
+                    if inPort == port:
+                        self.send_arp(datapath, 1, routerMac, routerIp,
+                           "ff:ff:ff:ff:ff:ff", hostIp, inPort, routeDist)
+            except KeyError:
+                datapath = None
+
+            hub.sleep(60)
+
+
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         super(OpenflowRouter, self).switch_features_handler(ev)
@@ -183,6 +204,7 @@ class OpenflowRouter(SimpleRouter):
         outPort = int(Port)
         self.send_arp(datapath, 1, routerMac, routerIp, "ff:ff:ff:ff:ff:ff",
                       hostIp, outPort, vrf_routeDist)
+        self.arpInfo[outPort] = ArpTable(hostIp, "", outPort)
         LOG.debug("send ARP request %s => %s (port%d)"
                  %(routerMac, "ff:ff:ff:ff:ff:ff", outPort))
 

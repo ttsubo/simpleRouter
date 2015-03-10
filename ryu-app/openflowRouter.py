@@ -860,7 +860,7 @@ class RouterController(ControllerBase):
         LOG.info("-------- ----------------- ------------")
         for k, v in sorted(simpleRouter.arpInfo.items()):
             (hostIpAddr, hostMacAddr, routerPort) = v.get_all()
-            LOG.info("%8x %s %s" % (routerPort, hostMacAddr, hostIpAddr))
+            LOG.info("%8x %18s %s" % (routerPort, hostMacAddr, hostIpAddr))
         return {
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),

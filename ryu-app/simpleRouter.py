@@ -43,6 +43,7 @@ class PortTable(object):
     def get_all(self):
         return self.routerIpAddr, self.routerMacAddr, self.routerPort, self.routeDist
 
+
 class ArpTable(object):
     def __init__(self, hostIpAddr, hostMacAddr, routerPort):
         self.hostIpAddr = hostIpAddr

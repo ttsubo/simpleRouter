@@ -167,3 +167,10 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
     def show_neighbor(self, routetype, address):
         format = "cli"
         return self.speaker.neighbor_get(routetype, address, format)
+
+
+    def update_neighbor_med(self, peerIp, med_value):
+        conf_type = 'multi_exit_disc'
+        conf_value = med_value
+        LOG.info("Send BGP UPDATE Message for changing MED[%s]"%med_value)
+        return self.speaker.neighbor_update(peerIp, conf_type, conf_value)

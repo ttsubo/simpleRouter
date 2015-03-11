@@ -433,6 +433,12 @@ class OpenflowRouter(SimpleRouter):
         self.remove_flow_mpls(datapath, label)
 
 
+    def update_neighborMed(self, dpid, peerIp, med): 
+        LOG.debug("change MED [%s]"% med)
+        med_value = int(med)
+        self.bgps.update_neighbor_med(peerIp, med_value)
+
+
 class RouterController(ControllerBase):
     def __init__(self, req, link, data, **config):
         super(RouterController, self).__init__(req, link, data, **config)
@@ -640,6 +646,16 @@ class RouterController(ControllerBase):
                         body = message)
 
 
+    @route('router', '/openflow/{dpid}/neighbor', methods=['PUT'], requirements={'dpid': dpid.DPID_PATTERN})
+    def update_med(self, req, dpid, **kwargs):
+        neighbor_param = eval(req.body)
+        result = self.updateNeighborMed(int(dpid, 16), neighbor_param)
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+
     def startBgp(self, dpid, bgp_param):
         simpleRouter = self.router_spp
         as_number = bgp_param['bgp']['as_number']
@@ -828,6 +844,20 @@ class RouterController(ControllerBase):
                'id': '%016d' % dpid,
                'ping': result.values()
             }
+
+
+    def updateNeighborMed(self, dpid, neighbor_param):
+        simpleRouter = self.router_spp
+        peerIp = neighbor_param['neighbor']['peerIp']
+        med = neighbor_param['neighbor']['med']
+        simpleRouter.update_neighborMed(dpid, peerIp, med)
+        return {
+            'id': '%016d' % dpid,
+            'neighbor': {
+                'peerIp': '%s' % peerIp,
+                'med': '%s' % med,
+            }
+        }
 
 
     def getInterface(self, dpid):

@@ -141,9 +141,9 @@ class OpenflowRouter(SimpleRouter):
                     for port in self.portInfo.values():
                         (routerIp, routerMac, port, routeDist) = port.get_all()
 
-                    if inPort == port:
-                        self.send_arp(datapath, 1, routerMac, routerIp,
-                           "ff:ff:ff:ff:ff:ff", hostIp, inPort, routeDist)
+                        if inPort == port:
+                            self.send_arp(datapath, 1, routerMac, routerIp,
+                               "ff:ff:ff:ff:ff:ff", hostIp, inPort, routeDist)
             except KeyError:
                 datapath = None
 
@@ -860,7 +860,7 @@ class RouterController(ControllerBase):
         LOG.info("-------- ----------------- ------------")
         for k, v in sorted(simpleRouter.arpInfo.items()):
             (hostIpAddr, hostMacAddr, routerPort) = v.get_all()
-            LOG.info("%8x %18s %s" % (routerPort, hostMacAddr, hostIpAddr))
+            LOG.info("%8x %17s %s" % (routerPort, hostMacAddr, hostIpAddr))
         return {
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),

@@ -28,7 +28,7 @@ def start_get_arp(dpid):
         hostIpAddr[a] = arp_list['arp'][a]['hostIpAddr']
         hostMacAddr[a] = arp_list['arp'][a]['hostMacAddr']
         routerPort[a] = arp_list['arp'][a]['routerPort']
-        print "%8x %s %s" % (routerPort[a], hostMacAddr[a], hostIpAddr[a])
+        print "%8x %17s %s" % (routerPort[a], hostMacAddr[a], hostIpAddr[a])
         
 
 ##############

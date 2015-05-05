@@ -34,6 +34,7 @@ class OpenflowRouter(SimpleRouter):
         wsgi = kwargs['wsgi']
         wsgi.register(RouterController, {'OpenFlowRouter' : self})
         self.bgp_thread = hub.spawn(self.update_remotePrefix)
+        self.arp_thread = hub.spawn(self.send_arpRequest)
 
 
     def register_localPrefix(self, dpid, destIpAddr, netMask, nextHopIpAddr,
@@ -129,6 +130,26 @@ class OpenflowRouter(SimpleRouter):
             hub.sleep(1)
 
 
+    def send_arpRequest(self):
+        dpid = 1
+        while True:
+            try:
+                datapath = self.monitor.datapaths[dpid]
+                for arp in self.arpInfo.values():
+                    (hostIp, hostMac, inPort) = arp.get_all()
+
+                    for port in self.portInfo.values():
+                        (routerIp, routerMac, port, routeDist) = port.get_all()
+
+                        if inPort == port:
+                            self.send_arp(datapath, 1, routerMac, routerIp,
+                               "ff:ff:ff:ff:ff:ff", hostIp, inPort, routeDist)
+            except KeyError:
+                datapath = None
+
+            hub.sleep(60)
+
+
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         super(OpenflowRouter, self).switch_features_handler(ev)
@@ -183,6 +204,7 @@ class OpenflowRouter(SimpleRouter):
         outPort = int(Port)
         self.send_arp(datapath, 1, routerMac, routerIp, "ff:ff:ff:ff:ff:ff",
                       hostIp, outPort, vrf_routeDist)
+        self.arpInfo[outPort] = ArpTable(hostIp, "", outPort)
         LOG.debug("send ARP request %s => %s (port%d)"
                  %(routerMac, "ff:ff:ff:ff:ff:ff", outPort))
 
@@ -411,6 +433,12 @@ class OpenflowRouter(SimpleRouter):
         self.remove_flow_mpls(datapath, label)
 
 
+    def update_neighborMed(self, dpid, peerIp, med): 
+        LOG.debug("change MED [%s]"% med)
+        med_value = int(med)
+        self.bgps.update_neighbor_med(peerIp, med_value)
+
+
 class RouterController(ControllerBase):
     def __init__(self, req, link, data, **config):
         super(RouterController, self).__init__(req, link, data, **config)
@@ -618,6 +646,16 @@ class RouterController(ControllerBase):
                         body = message)
 
 
+    @route('router', '/openflow/{dpid}/neighbor', methods=['PUT'], requirements={'dpid': dpid.DPID_PATTERN})
+    def update_med(self, req, dpid, **kwargs):
+        neighbor_param = eval(req.body)
+        result = self.updateNeighborMed(int(dpid, 16), neighbor_param)
+        message = json.dumps(result)
+        return Response(status=200,
+                        content_type = 'application/json',
+                        body = message)
+
+
     def startBgp(self, dpid, bgp_param):
         simpleRouter = self.router_spp
         as_number = bgp_param['bgp']['as_number']
@@ -808,6 +846,20 @@ class RouterController(ControllerBase):
             }
 
 
+    def updateNeighborMed(self, dpid, neighbor_param):
+        simpleRouter = self.router_spp
+        peerIp = neighbor_param['neighbor']['peerIp']
+        med = neighbor_param['neighbor']['med']
+        simpleRouter.update_neighborMed(dpid, peerIp, med)
+        return {
+            'id': '%016d' % dpid,
+            'neighbor': {
+                'peerIp': '%s' % peerIp,
+                'med': '%s' % med,
+            }
+        }
+
+
     def getInterface(self, dpid):
         simpleRouter = self.router_spp
         nowtime = datetime.datetime.now()
@@ -838,7 +890,7 @@ class RouterController(ControllerBase):
         LOG.info("-------- ----------------- ------------")
         for k, v in sorted(simpleRouter.arpInfo.items()):
             (hostIpAddr, hostMacAddr, routerPort) = v.get_all()
-            LOG.info("%8x %s %s" % (routerPort, hostMacAddr, hostIpAddr))
+            LOG.info("%8x %17s %s" % (routerPort, hostMacAddr, hostIpAddr))
         return {
           'id': '%016d' % dpid,
           'time': '%s' % nowtime.strftime("%Y/%m/%d %H:%M:%S"),

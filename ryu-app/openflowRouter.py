@@ -49,9 +49,13 @@ class OpenflowRouter(SimpleRouter):
             self.register_route(dpid, destIpAddr, netMask, nextHopIpAddr)
 
 
-    def delete_localPrefix(self, dpid, destIpAddr, netMask):
-        self.remove_route(dpid, destIpAddr, netMask)
-        self.bgps.remove_prefix(destIpAddr, netMask)
+    def delete_localPrefix(self, dpid, destIpAddr, netMask, vrf_routeDist):
+        if vrf_routeDist:
+            self.remove_route_pop_mpls(dpid, vrf_routeDist, destIpAddr, netMask)
+            self.bgps.remove_prefix(destIpAddr, netMask, vrf_routeDist)
+        else:
+            self.remove_route(dpid, destIpAddr, netMask)
+            self.bgps.remove_prefix(destIpAddr, netMask)
 
 
     def get_bgp_rib(self):
@@ -798,12 +802,15 @@ class RouterController(ControllerBase):
         simpleRouter = self.router_spp
         destinationIp = route_param['route']['destination']
         netMask = route_param['route']['netmask']
-        simpleRouter.delete_localPrefix(dpid, destinationIp, netMask)
+        vrf_routeDist = route_param['route']['vrf_routeDist']
+        simpleRouter.delete_localPrefix(dpid, destinationIp, netMask,
+                                        vrf_routeDist)
         return {
             'id': '%016d' % dpid,
             'route': {
                 'destination': '%s' % destinationIp,
                 'netmask': '%s' % netMask,
+                'vrf_routeDist': '%s' % vrf_routeDist
             }
         }
 

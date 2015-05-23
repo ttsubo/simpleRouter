@@ -60,7 +60,7 @@ For example:
 
 
 ### Get the simpleRouter code from github
-Get [simpleRouter v0.7](https://github.com/ttsubo/simpleRouter/releases/tag/v0.7) and deploy the code in your LinuxBox. 
+Get [simpleRouter v0.8](https://github.com/ttsubo/simpleRouter/releases/tag/v0.8) and deploy the code in your LinuxBox. 
 
 
 ### OpenvSwitch installation
@@ -282,7 +282,7 @@ You should assign internal ports as following.
 ### STEP3: Starting simpleRouter
 (1) You can Start simpleRouter.
 
-	$ cd simpleRouter-0.7/ryu-app/
+	$ cd simpleRouter-0.8/ryu-app/
 	$ sudo ryu-manager --log-config-file logging.conf openflowRouter.py
 
 
@@ -385,7 +385,7 @@ These scripts are useful for checking simpleRouter as bellow.
 
 (1) Check Port Information  
 
-	$ cd simpleRouter-0.7/rest-client
+	$ cd simpleRouter-0.8/rest-client
 	$ ./get_interface.sh 
 	======================================================================
 	get_interface
@@ -408,7 +408,7 @@ These scripts are useful for checking simpleRouter as bellow.
 
 (2) Check Arp Information  
 
-	$ cd simpleRouter-0.7/rest-client
+	$ cd simpleRouter-0.8/rest-client
 	$ ./get_arp.sh 
 	======================================================================
 	get_arp
@@ -434,7 +434,7 @@ These scripts are useful for checking simpleRouter as bellow.
 
 (3) Check BGP_rib Table Information  
 
-	$ cd simpleRouter-0.7/rest-client
+	$ cd simpleRouter-0.8/rest-client
         $ ./get_rib.sh 
 	======================================================================
 	get_rib
@@ -459,7 +459,7 @@ These scripts are useful for checking simpleRouter as bellow.
 
 (4) Check Routing Table Information  
 
-	$ cd simpleRouter-0.7/rest-client
+	$ cd simpleRouter-0.8/rest-client
 	$ ./get_mpls.sh 
 	======================================================================
 	get_mpls
@@ -481,7 +481,7 @@ These scripts are useful for checking simpleRouter as bellow.
 
 (5) Check BGP_neighbor Table Information  
 
-	$ cd simpleRouter-0.7/rest-client
+	$ cd simpleRouter-0.8/rest-client
 	$ ./get_neighbor.sh 
 	======================================================================
 	get_neighbor
@@ -511,7 +511,7 @@ These scripts are useful for checking simpleRouter as bellow.
 
 (6) Check BGP Peering UP/DOWN log Information  
 
-	$ cd simpleRouter-0.7/rest-client
+	$ cd simpleRouter-0.8/rest-client
 	$ ./get_peer_status.sh 
 	======================================================================
 	get_peer_status

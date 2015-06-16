@@ -35,6 +35,7 @@ class OpenflowRouter(SimpleRouter):
         wsgi.register(RouterController, {'OpenFlowRouter' : self})
         self.bgp_thread = hub.spawn(self.update_remotePrefix)
         self.arp_thread = hub.spawn(self.send_arpRequest)
+        self.vrf_list = []
 
 
     def register_localPrefix(self, dpid, destIpAddr, netMask, nextHopIpAddr,
@@ -110,27 +111,34 @@ class OpenflowRouter(SimpleRouter):
                 labelList = remotePrefix['label']
                 label = labelList[0]
                 withdraw = remotePrefix['withdraw']
-                if withdraw:
-                    if label:
-                        self.remove_route_push_mpls(dpid, vrf_routeDist, label,
-                                                    destIpAddr, netMask)
+                for routeDist in self.vrf_list:
+                    if vrf_routeDist == routeDist:
+                        pri = 0xff
                     else:
-                        self.remove_route(dpid, destIpAddr, netMask)
-                else:
-                    if label:
-                        if destIpAddr != "0.0.0.0":
-                            self.register_route_push_mpls(dpid, vrf_routeDist,
-                                                     destIpAddr, netMask, label,
-                                                     nextHopIpAddr)
+                        pri = 0xf
+
+
+                    if withdraw:
+                        if label:
+                            self.remove_route_push_mpls(dpid, vrf_routeDist,
+                                      label, destIpAddr, netMask)
                         else:
-                            self.register_gateway_push_mpls(dpid, vrf_routeDist,
-                                                            label, nextHopIpAddr)
+                            self.remove_route(dpid, destIpAddr, netMask)
                     else:
-                        if destIpAddr != "0.0.0.0":
-                            self.register_route(dpid, destIpAddr, netMask,
-                                                nextHopIpAddr)
+                        if label:
+                            if destIpAddr != "0.0.0.0":
+                                self.register_route_push_mpls(dpid,
+                                       vrf_routeDist, destIpAddr, netMask,
+                                       label, nextHopIpAddr, pri)
+                            else:
+                                self.register_gateway_push_mpls(dpid,
+                                       vrf_routeDist, label, nextHopIpAddr)
                         else:
-                            self.register_gateway(dpid, nextHopIpAddr)
+                            if destIpAddr != "0.0.0.0":
+                                self.register_route(dpid, destIpAddr,
+                                       netMask, nextHopIpAddr)
+                            else:
+                                self.register_gateway(dpid, nextHopIpAddr)
             hub.sleep(1)
 
 
@@ -195,6 +203,7 @@ class OpenflowRouter(SimpleRouter):
         exportList.append(exportRt)
         LOG.debug("Register vrf(RD:%s)"%vrf_routeDist)
         self.bgps.add_vrf(vrf_routeDist, importList, exportList)
+        self.vrf_list.append(vrf_routeDist)
 
 
     def delete_vrf(self, dpid, vrf_routeDist):
@@ -345,7 +354,7 @@ class OpenflowRouter(SimpleRouter):
             LOG.debug("Unknown nextHopIpAddress!!")
  
 
-    def register_route_push_mpls(self, dpid, vrf_routeDist, destIpAddr, netMask, label, nextHopIpAddr):
+    def register_route_push_mpls(self, dpid, vrf_routeDist, destIpAddr, netMask, label, nextHopIpAddr, pri):
         datapath = self.monitor.datapaths[dpid]
 
         for arp in self.arpInfo.values():
@@ -369,7 +378,7 @@ class OpenflowRouter(SimpleRouter):
                       vrf_routeDist, destIpAddr, netMask, nextHopIpAddr, label))
             self.add_flow_push_mpls(datapath, ether.ETH_TYPE_IP, vrf_routeDist,
                                     label, destIpAddr, netMask, mod_srcMac,
-                                    mod_dstMac, outPort, nextHopIpAddr)
+                                    mod_dstMac, outPort, nextHopIpAddr, pri)
             self.add_flow_mpls(datapath, label, mod_srcMac, mod_dstMac, outPort)
         else:
             LOG.debug("Unknown nextHopIpAddress!!")

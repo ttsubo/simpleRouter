@@ -38,24 +38,10 @@ port2_opts.append(cfg.StrOpt('bgp_local_pref', default=[], help='bgp_local_pref'
 port2_opts.append(cfg.StrOpt('bgp_filter_asnumber', default=[], help='bgp_filter_asnumber'))
 port2_opts.append(cfg.StrOpt('vrf_routeDist', default=[], help='vrf_routeDist'))
 
-port3_opts.append(cfg.StrOpt('port', default=[], help='OpenFlow Port'))
-port3_opts.append(cfg.StrOpt('macaddress', default=[], help='MacAddress'))
-port3_opts.append(cfg.StrOpt('ipaddress', default=[], help='IpAddress'))
-port3_opts.append(cfg.StrOpt('netmask', default=[], help='netmask'))
-port3_opts.append(cfg.StrOpt('opposite_ipaddress', default=[],
-                   help='opposite_IpAddress'))
-port3_opts.append(cfg.StrOpt('opposite_asnumber', default=[],
-                   help='opposite_asnumber'))
-port3_opts.append(cfg.StrOpt('port_offload_bgp', default=[], help='port_offload_bgp'))
-port3_opts.append(cfg.StrOpt('bgp_med', default=[], help='bgp_med'))
-port3_opts.append(cfg.StrOpt('bgp_local_pref', default=[], help='bgp_local_pref'))
-port3_opts.append(cfg.StrOpt('bgp_filter_asnumber', default=[], help='bgp_filter_asnumber'))
-port3_opts.append(cfg.StrOpt('vrf_routeDist', default=[], help='vrf_routeDist'))
 
 CONF = cfg.CONF
 CONF.register_cli_opts(port1_opts, 'Port1')
 CONF.register_cli_opts(port2_opts, 'Port2')
-CONF.register_cli_opts(port2_opts, 'Port3')
 
 
 ##################
@@ -138,26 +124,5 @@ def main():
                            port_offload_bgp2, bgp_med2, bgp_local_pref2,
                            bgp_filter_asnumber2, vrf_routeDist2)
 
-    time.sleep(5)
-    try:
-        CONF(default_config_files=['OpenFlow.ini'])
-        port3 = CONF.Port3.port
-        macaddress3 = CONF.Port3.macaddress
-        ipaddress3 = CONF.Port3.ipaddress
-        netmask3 = CONF.Port3.netmask
-        opposite_ipaddress3 = CONF.Port3.opposite_ipaddress
-        opposite_asnumber3 = CONF.Port3.opposite_asnumber
-        port_offload_bgp3 = CONF.Port3.port_offload_bgp
-        bgp_med3 = CONF.Port3.bgp_med
-        bgp_local_pref3 = CONF.Port3.bgp_local_pref
-        bgp_filter_asnumber3 = CONF.Port3.bgp_filter_asnumber
-        vrf_routeDist3 = CONF.Port3.vrf_routeDist
-    except cfg.ConfigFilesNotFoundError:
-        print "Error: Not Found <OpenFlow.ini> "
-
-    start_create_interface(dpid, port3, macaddress3, ipaddress3, netmask3,
-                           opposite_ipaddress3, opposite_asnumber3,
-                           port_offload_bgp3, bgp_med3, bgp_local_pref3,
-                           bgp_filter_asnumber3, vrf_routeDist3)
 if __name__ == "__main__":
     main()

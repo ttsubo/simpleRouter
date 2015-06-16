@@ -467,7 +467,7 @@ class SimpleRouter(app_manager.RyuApp):
         datapath.send_msg(mod)
 
 
-    def add_flow_push_mpls(self, datapath, ethertype, routeDist, label, mod_dstIp, mod_dstMask, mod_srcMac, mod_dstMac, outPort, nexthop):
+    def add_flow_push_mpls(self, datapath, ethertype, routeDist, label, mod_dstIp, mod_dstMask, mod_srcMac, mod_dstMac, outPort, nexthop, pri):
 
         ipaddress = IPNetwork(mod_dstIp + '/' + mod_dstMask)
         prefix = str(ipaddress.cidr)
@@ -499,7 +499,7 @@ class SimpleRouter(app_manager.RyuApp):
                 datapath=datapath,
                 idle_timeout=0,
                 hard_timeout=0,
-                priority=0xf,
+                priority=pri,
                 buffer_id=0xffffffff,
                 out_port=datapath.ofproto.OFPP_ANY,
                 out_group=datapath.ofproto.OFPG_ANY,

@@ -3,7 +3,7 @@
 
 import json
 import time
-from oslo.config import cfg
+from oslo_config import cfg
 from common_func import request_info
 
 port1_opts = []

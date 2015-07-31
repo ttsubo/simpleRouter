@@ -2,7 +2,7 @@
 #-*- coding: utf-8 -*-
 
 import json
-from oslo.config import cfg
+from oslo_config import cfg
 from common_func import request_info
 
 bgp_opts = []

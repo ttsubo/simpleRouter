@@ -81,10 +81,10 @@ class OpenflowRouter(SimpleRouter):
                         (ipAddr2, macAddr2, port2) = arp.get_all()
                         if port1 == port2:
                             destIpAddr = ipAddr2
-
-            label = self.bgps.add_prefix(destIpAddr, netMask, None, routeDist)
-            self.register_route_pop_mpls(dpid, routeDist, destIpAddr, netMask,
-                                         label, nextHopIpAddr)
+                            label = self.bgps.add_prefix(destIpAddr, netMask,
+                                                         None, routeDist)
+                            self.register_route_pop_mpls(dpid, routeDist,
+                                     destIpAddr, netMask, label, nextHopIpAddr)
         elif redistribute == "OFF":
             for portNo, port in self.portInfo.items():
                 (ipAddr1, macAddr1, port1, routeDist) = port.get_all()
@@ -93,8 +93,10 @@ class OpenflowRouter(SimpleRouter):
                         (ipAddr2, macAddr2, port2) = arp.get_all()
                         if port1 == port2:
                             destIpAddr = ipAddr2
-            self.bgps.remove_prefix(destIpAddr, netMask, routeDist)
-            self.remove_route_pop_mpls(dpid, routeDist, destIpAddr, netMask)
+                            self.bgps.remove_prefix(destIpAddr, netMask,
+                                                    routeDist)
+                            self.remove_route_pop_mpls(dpid, routeDist,
+                                                       destIpAddr, netMask)
 
 
     def update_remotePrefix(self):

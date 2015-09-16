@@ -5,6 +5,7 @@
 import eventlet
 import logging
 import datetime
+import time
 
 # BGPSpeaker needs sockets patched
 eventlet.monkey_patch()
@@ -42,6 +43,19 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         self.bgp_q = hub.Queue()
         self.name = 'bgps'
         self.bgpPeerStatus = {}
+        self.target_route_dist = None
+        self.bgp_thread = hub.spawn(self.monitor_target_remotePrefix)
+
+    def monitor_target_remotePrefix(self):
+        previous_route_dist = None
+        while True:
+            if self.target_route_dist == None:
+                pass
+            elif self.target_route_dist == previous_route_dist:
+                self.target_route_dist = None
+            else:
+                previous_route_dist = self.target_route_dist
+            time.sleep(60)
 
 
     def dump_remote_best_path_change(self, event):
@@ -56,7 +70,19 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
         remote_prefix['label'] = event.label
         remote_prefix['withdraw'] = event.is_withdraw
         LOG.debug("remote_prefix=%s"%remote_prefix)
-        self.bgp_q.put(remote_prefix)
+
+        if self.filter_regist_remotePrefix(event.route_dist):
+            self.bgp_q.put(remote_prefix)
+
+    def filter_regist_remotePrefix(self, route_dist):
+        if self.target_route_dist == None:
+            result = True
+        elif self.target_route_dist == route_dist:
+            result = True
+        else:
+            result = False
+
+        return result
 
 
     def detect_peer_down(self, remote_ip, remote_as):
@@ -113,6 +139,7 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
 
     def add_vrf(self, routeDist, importList, exportList):
         self.speaker.vrf_add(routeDist, importList, exportList)
+        self.target_route_dist = routeDist
 
 
     def del_vrf(self, routeDist):

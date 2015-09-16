@@ -104,7 +104,7 @@ class OpenflowRouter(SimpleRouter):
             dpid = 1
             if not self.bgps.bgp_q.empty():
                 remotePrefix = self.bgps.bgp_q.get()
-                LOG.debug("remotePrefix=%s"%remotePrefix)
+                LOG.info("remotePrefix=%s"%remotePrefix)
                 vrf_routeDist = remotePrefix['route_dist']
                 destIpAddr = remotePrefix['prefix']
                 netMask = remotePrefix['netmask']
@@ -133,7 +133,7 @@ class OpenflowRouter(SimpleRouter):
                                                 nextHopIpAddr)
                         else:
                             self.register_gateway(dpid, nextHopIpAddr)
-            hub.sleep(1)
+            hub.sleep(0.1)
 
 
     def send_arpRequest(self):
@@ -172,21 +172,21 @@ class OpenflowRouter(SimpleRouter):
             asNum = int(as_number)
             label_start = int(label_range_start)
             label_end = int(label_range_end)
-        LOG.debug("start BGPSpeaker [%s, %s]"%(as_number, router_id))
+        LOG.info("start BGPSpeaker [%s, %s]"%(as_number, router_id))
         self.bgps.start_bgpspeaker(asNum, router_id, label_start, label_end)
 
 
     def start_bmpclient(self, dpid, address, port):
         if port:
             portNum = int(port)
-        LOG.debug("start BmpClient [%s, %s]"%(address, port))
+        LOG.info("start BmpClient [%s, %s]"%(address, port))
         self.bgps.start_bmpclient(address, portNum)
 
 
     def stop_bmpclient(self, dpid, address, port):
         if port:
             portNum = int(port)
-        LOG.debug("stop BmpClient [%s, %s]"%(address, port))
+        LOG.info("stop BmpClient [%s, %s]"%(address, port))
         self.bgps.stop_bmpclient(address, portNum)
 
 
@@ -195,17 +195,17 @@ class OpenflowRouter(SimpleRouter):
         exportList = []
         importList.append(importRt)
         exportList.append(exportRt)
-        LOG.debug("Register vrf(RD:%s)"%vrf_routeDist)
+        LOG.info("Register vrf(RD:%s)"%vrf_routeDist)
         self.bgps.add_vrf(vrf_routeDist, importList, exportList)
 
 
     def delete_vrf(self, dpid, vrf_routeDist):
-        LOG.debug("Delete vrf(RD:%s)"%vrf_routeDist)
+        LOG.info("Delete vrf(RD:%s)"%vrf_routeDist)
         self.bgps.del_vrf(vrf_routeDist)
 
 
     def register_inf(self, dpid, routerIp, netMask, routerMac, hostIp, asNumber, Port, bgpPort, med, localPref, filterAsNumber, vrf_routeDist):
-        LOG.debug("Register Interface(port%s)"% Port)
+        LOG.info("Register Interface(port%s)"% Port)
         datapath = self.monitor.datapaths[dpid]
         outPort = int(Port)
         self.send_arp(datapath, 1, routerMac, routerIp, "ff:ff:ff:ff:ff:ff",
@@ -245,7 +245,7 @@ class OpenflowRouter(SimpleRouter):
             LOG.debug("Send Flow_mod packet for bgp offload(%s)"% hostIp)
             self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_IP,
                                   hostIp, outPort)
-            LOG.debug("start BGP peering with [%s]"% hostIp)
+            LOG.info("start BGP peering with [%s]"% hostIp)
             self.bgps.add_neighbor(hostIp, asNum, medValue, localPrefValue,
                                    filterAsNum)
 
@@ -440,7 +440,7 @@ class OpenflowRouter(SimpleRouter):
 
 
     def update_neighborMed(self, dpid, peerIp, med): 
-        LOG.debug("change MED [%s]"% med)
+        LOG.info("change MED [%s]"% med)
         med_value = int(med)
         self.bgps.update_neighbor_med(peerIp, med_value)
 

@@ -125,7 +125,8 @@ class SimpleBGPSpeaker(app_manager.RyuApp):
 
     def add_neighbor(self, peerIp, asNumber, med, localPref, filterAsNum):
         self.speaker.neighbor_add(peerIp, asNumber, is_next_hop_self=True,
-                                  enable_vpnv4=True, multi_exit_disc=med)
+                               enable_vpnv4=True, enable_enhanced_refresh=True,
+                               multi_exit_disc=med)
         if filterAsNum:
             as_path_filter = ASPathFilter(filterAsNum,
                                           policy=ASPathFilter.POLICY_TOP)

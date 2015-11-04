@@ -252,7 +252,7 @@ class SimpleRouter(app_manager.RyuApp):
         elif arpPacket.opcode == 2:
             operation = "ARP Reply"
 
-        LOG.debug("receive %s %s => %s (port%d)"
+        LOG.info("receive %s %s => %s (port%d)"
                        %(operation, etherFrame.src, etherFrame.dst, inPort))
         self.print_etherFrame(etherFrame)
         self.print_arpPacket(arpPacket)
@@ -279,7 +279,7 @@ class SimpleRouter(app_manager.RyuApp):
 
         if srcMac:
             self.send_arp(datapath, 2, srcMac, srcIp, dstMac, dstIp, outPort)
-            LOG.debug("send ARP reply %s => %s (port%d)" %(srcMac, dstMac, outPort))
+            LOG.info("send ARP reply %s => %s (port%d)" %(srcMac, dstMac, outPort))
             return 0
         else:
             LOG.debug("unknown arp requst received !")
@@ -665,24 +665,24 @@ class SimpleRouter(app_manager.RyuApp):
 
 
     def print_etherFrame(self, etherFrame):
-        LOG.debug("---------------------------------------")
-        LOG.debug("eth_dst_address :%s"% etherFrame.dst)
-        LOG.debug("eth_src_address :%s"% etherFrame.src)
-        LOG.debug("eth_ethertype :0x%04x"% etherFrame.ethertype)
-        LOG.debug("---------------------------------------")
+        LOG.info("---------------------------------------")
+        LOG.info("eth_dst_address :%s"% etherFrame.dst)
+        LOG.info("eth_src_address :%s"% etherFrame.src)
+        LOG.info("eth_ethertype :0x%04x"% etherFrame.ethertype)
+        LOG.info("---------------------------------------")
 
 
     def print_arpPacket(self, arpPacket):
-        LOG.debug("arp_hwtype :%d"% arpPacket.hwtype)
-        LOG.debug("arp_proto :0x%04x"% arpPacket.proto)
-        LOG.debug("arp_hlen :%d"% arpPacket.hlen)
-        LOG.debug("arp_plen :%d"% arpPacket.plen)
-        LOG.debug("arp_opcode :%d"% arpPacket.opcode)
-        LOG.debug("arp_src_mac :%s"% arpPacket.src_mac)
-        LOG.debug("arp_src_ip :%s"% arpPacket.src_ip)
-        LOG.debug("arp_dst_mac :%s"% arpPacket.dst_mac)
-        LOG.debug("arp_dst_ip :%s"% arpPacket.dst_ip)
-        LOG.debug("---------------------------------------")
+        LOG.info("arp_hwtype :%d"% arpPacket.hwtype)
+        LOG.info("arp_proto :0x%04x"% arpPacket.proto)
+        LOG.info("arp_hlen :%d"% arpPacket.hlen)
+        LOG.info("arp_plen :%d"% arpPacket.plen)
+        LOG.info("arp_opcode :%d"% arpPacket.opcode)
+        LOG.info("arp_src_mac :%s"% arpPacket.src_mac)
+        LOG.info("arp_src_ip :%s"% arpPacket.src_ip)
+        LOG.info("arp_dst_mac :%s"% arpPacket.dst_mac)
+        LOG.info("arp_dst_ip :%s"% arpPacket.dst_ip)
+        LOG.info("---------------------------------------")
 
 
     def print_ipPacket(self, ipPacket):

@@ -148,6 +148,8 @@ class OpenflowRouter(SimpleRouter):
                         if inPort == port:
                             self.send_arp(datapath, 1, routerMac, routerIp,
                                "ff:ff:ff:ff:ff:ff", hostIp, inPort, routeDist)
+                            LOG.info("send ARP request %s => %s (port%d)"
+                                   %(routerMac, "ff:ff:ff:ff:ff:ff", inPort))
             except KeyError:
                 datapath = None
 
@@ -209,43 +211,8 @@ class OpenflowRouter(SimpleRouter):
         self.send_arp(datapath, 1, routerMac, routerIp, "ff:ff:ff:ff:ff:ff",
                       hostIp, outPort, vrf_routeDist)
         self.arpInfo[outPort] = ArpTable(hostIp, "", outPort)
-        LOG.debug("send ARP request %s => %s (port%d)"
+        LOG.info("send ARP request %s => %s (port%d)"
                  %(routerMac, "ff:ff:ff:ff:ff:ff", outPort))
-
-        if bgpPort:
-            offloadPort = int(bgpPort)
-            if asNumber:
-                asNum = int(asNumber)
-
-            if med:
-                medValue = int(med)
-            else:
-                medValue = None
-
-            if localPref:
-                localPrefValue = int(localPref)
-            else:
-                localPrefValue = None
-
-            if filterAsNumber:
-                filterAsNum = int(filterAsNumber)
-            else:
-                filterAsNum = None
-
-            LOG.debug("Send Flow_mod packet for bgp offload(arp)")
-            self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_ARP,
-                                  "", outPort)
-            self.add_flow_for_bgp(datapath, outPort, ether.ETH_TYPE_ARP,
-                                  "", offloadPort)
-            LOG.debug("Send Flow_mod packet for bgp offload(%s)"% routerIp)
-            self.add_flow_for_bgp(datapath, outPort, ether.ETH_TYPE_IP,
-                                  routerIp, offloadPort)
-            LOG.debug("Send Flow_mod packet for bgp offload(%s)"% hostIp)
-            self.add_flow_for_bgp(datapath, offloadPort, ether.ETH_TYPE_IP,
-                                  hostIp, outPort)
-            LOG.debug("start BGP peering with [%s]"% hostIp)
-            self.bgps.add_neighbor(hostIp, asNum, medValue, localPrefValue,
-                                   filterAsNum)
 
 
     def send_ping(self, dpid, targetIp, seq, data, sendPort):

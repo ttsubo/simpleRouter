@@ -80,7 +80,7 @@ I've already confirmed that "Raspberry Pi Model B" works properly as following.
 
 ### OpenvSwitch installation
 
-(1) Installing Ryu Controller  
+(1) Installing OpenvSwitch 
 
 	pi@raspberrypi:~ $ sudo apt-get install openvswitch-switch
 
@@ -276,6 +276,25 @@ You need to assign internal ports as following.
 
 
 ### STEP3: Starting simpleRouter
+You can Start simpleRouter.
+
+        pi@raspberrypi:~ $ cd simpleRouter/ryu-app/
+        pi@raspberrypi:~/simpleRouter/ryu-app $ sudo ryu-manager openflowRouter.py
+        loading app openflowRouter.py
+        loading app ryu.controller.ofp_handler
+        creating context wsgi
+        instantiating app None of SimpleMonitor
+        creating context monitor
+        instantiating app None of SimpleBGPSpeaker
+        creating context bgps
+        instantiating app openflowRouter.py of OpenflowRouter
+        instantiating app ryu.controller.ofp_handler of OFPHandler
+        (1594) wsgi starting up on http://0.0.0.0:8080/
+
+
+### STEP4: Applying various information for simpleRouter
+You can apply various information through RESTful in simpleRouter.  
+These scripts are useful for applying some parameters to simpleRouter. 
 
 	             +---------+  mp-BGP          +--------+
 	... -------+ | simple  | +--------------+ |  BGP   | +---- ...
@@ -285,10 +304,6 @@ You need to assign internal ports as following.
 
 	<-- Target in simpleRouter ---->   <---- out of scope ---->
 
-
-### STEP4: Applying various information for simpleRouter
-You can check various information through RESTful in simpleRouter.  
-These scripts are useful for applying some parameters to simpleRouter. 
 
 (1) You can edit some parammeters for simpleRouter.
 
@@ -338,23 +353,7 @@ These scripts are useful for applying some parameters to simpleRouter.
 	address = "172.16.1.102"
 
 
-(2) You can Start simpleRouter.
-
-	pi@raspberrypi:~ $ cd simpleRouter/ryu-app/
-	pi@raspberrypi:~/simpleRouter/ryu-app $ sudo ryu-manager openflowRouter.py 
-	loading app openflowRouter.py
-	loading app ryu.controller.ofp_handler
-	creating context wsgi
-	instantiating app None of SimpleMonitor
-	creating context monitor
-	instantiating app None of SimpleBGPSpeaker
-	creating context bgps
-	instantiating app openflowRouter.py of OpenflowRouter
-	instantiating app ryu.controller.ofp_handler of OFPHandler
-	(1594) wsgi starting up on http://0.0.0.0:8080/
-
-
-(3) You need to apply some parameters of [Bgp] section in OpenFLow.ini. 
+(2) You need to apply some parameters of [Bgp] section in OpenFLow.ini. 
 
 	pi@raspberrypi:~/simpleRouter/rest-client $ ./post_start_bgpspeaker.sh 
 	======================================================================
@@ -387,7 +386,7 @@ These scripts are useful for applying some parameters to simpleRouter.
 	}
 
 
-(4) You need to apply some parameters of [Port..] section in OpenFLow.ini. 
+(3) You need to apply some parameters of [Port..] section in OpenFLow.ini. 
 
 	pi@raspberrypi:~/simpleRouter/rest-client $ ./post_interface.sh 
 	======================================================================
@@ -477,7 +476,7 @@ These scripts are useful for applying some parameters to simpleRouter.
 	}
 
 
-(5) You need to apply some parameters of [Vrf] section in OpenFLow.ini. 
+(4) You need to apply some parameters of [Vrf] section in OpenFLow.ini. 
 
 	pi@raspberrypi:~/simpleRouter/rest-client $ ./post_vrf.sh 
 	======================================================================
@@ -507,7 +506,7 @@ These scripts are useful for applying some parameters to simpleRouter.
 	    }
 	}
 
-(6) Some static routing informations need to be redistributed in BGP Peering. 
+(5) Some static routing informations need to be redistributed in BGP Peering. 
 
 	pi@raspberrypi:~/simpleRouter/rest-client $ ./post_redistributeConnect_on.sh 
 	======================================================================

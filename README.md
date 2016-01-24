@@ -125,7 +125,6 @@ You need to assign physical ports as following.
 	auto lo
 	iface lo inet loopback
 
-	#iface eth0 inet manual
 	auto eth0
 	iface eth0 inet static
 	address 192.168.100.101
@@ -174,6 +173,7 @@ You need to assign physical ports as following.
 	pi@raspberrypi:~ $ sudo ovs-vsctl add-br br0
 	pi@raspberrypi:~ $ sudo ovs-vsctl add-port br0 eth1
 	pi@raspberrypi:~ $ sudo ovs-vsctl add-port br0 eth2
+	pi@raspberrypi:~ $ sudo ovs-vsctl add-port br0 eth3
 	pi@raspberrypi:~ $ sudo ovs-vsctl set-controller br0 tcp:127.0.0.1:6633
 	pi@raspberrypi:~ $ sudo ovs-vsctl set bridge br0 other-config:datapath-id=0000000000000001
 	pi@raspberrypi:~ $ sudo ovs-vsctl set bridge br0 protocols=OpenFlow13
@@ -187,6 +187,7 @@ You need to assign physical ports as following.
 
 	pi@raspberrypi:~ $ sudo ovs-vsctl add-port br0 bgpPort1 -- set Interface bgpPort1 type=internal
 	pi@raspberrypi:~ $ sudo ovs-vsctl add-port br0 bgpPort2 -- set Interface bgpPort2 type=internal
+	pi@raspberrypi:~ $ sudo /etc/init.d/networking restart
 
 
 (4) Checking OpenFlow ports
@@ -317,7 +318,7 @@ These scripts are useful for applying some parameters to simpleRouter.
 
 (2) You need to apply some parameters of [Bgp] section in OpenFLow.ini. 
 
-	pi@raspberrypi:~/simpleRouter/rest-client $ ./post_start_bgpspeaker.sh 
+	pi@raspberrypi:~/simpleRouter/rest-client $ ./post_start_bgpspeaker.sh
 	======================================================================
 	start_bgp
 	======================================================================
@@ -335,7 +336,7 @@ These scripts are useful for applying some parameters to simpleRouter.
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
 	header: Content-Length: 136
-	header: Date: Sun, 17 Jan 2016 06:16:18 GMT
+	header: Date: Sun, 24 Jan 2016 06:34:49 GMT
 	----------
 	{
 	    "bgp": {
@@ -364,78 +365,37 @@ These scripts are useful for applying some parameters to simpleRouter.
 	"netmask": "255.255.255.252",
 	"opposite_ipaddress": "172.16.1.102",
 	"opposite_asnumber": "65011",
-	"port_offload_bgp": "3",
+	"port_offload_bgp": "4",
 	"bgp_med": "",
-	"bgp_local_pref": "300",
-	"bgp_filter_asnumber": "65011",
+	"bgp_local_pref": "",
+	"bgp_filter_asnumber": "",
 	"vrf_routeDist": ""
 	}
 	}
 	----------
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
-	header: Content-Length: 334
-	header: Date: Sun, 17 Jan 2016 06:16:28 GMT
+	header: Content-Length: 326
+	header: Date: Sun, 24 Jan 2016 06:34:53 GMT
 	----------
 	{
 	    "interface": {
-	        "port_offload_bgp": "3", 
-	        "bgp_local_pref": "300", 
+	        "port_offload_bgp": "4", 
+	        "bgp_local_pref": "", 
 	        "opposite_asnumber": "65011", 
 	        "macaddress": "00:00:00:11:11:11", 
 	        "bgp_med": "", 
 	        "netmask": "255.255.255.252", 
 	        "opposite_ipaddress": "172.16.1.102", 
 	        "vrf_routeDist": "", 
-	        "bgp_filter_asnumber": "65011", 
+	        "bgp_filter_asnumber": "", 
 	        "ipaddress": "172.16.1.101", 
 	        "port": "1"
 	    }, 
 	    "id": "0000000000000001"
 	}
 
-	======================================================================
-	create_interface
-	======================================================================
-	/openflow/0000000000000001/interface
-
-	{
-	"interface": {
-	"port": "2",
-	"macaddress": "00:00:00:00:00:01",
-	"ipaddress": "192.168.1.101",
-	"netmask": "255.255.255.0",
-	"opposite_ipaddress": "192.168.1.102",
-	"opposite_asnumber": "",
-	"port_offload_bgp": "",
-	"bgp_med": "",
-	"bgp_local_pref": "",
-	"bgp_filter_asnumber": "",
-	"vrf_routeDist": "65011:101"
-	}
-	}
-	----------
-	reply: 'HTTP/1.1 200 OK\r\n'
-	header: Content-Type: application/json; charset=UTF-8
-	header: Content-Length: 329
-	header: Date: Sun, 17 Jan 2016 06:16:33 GMT
-	----------
-	{
-	    "interface": {
-	        "port_offload_bgp": "", 
-	        "bgp_local_pref": "", 
-	        "opposite_asnumber": "", 
-	        "macaddress": "00:00:00:00:00:01", 
-	        "bgp_med": "", 
-	        "netmask": "255.255.255.0", 
-	        "opposite_ipaddress": "192.168.1.102", 
-	        "vrf_routeDist": "65011:101", 
-	        "bgp_filter_asnumber": "", 
-	        "ipaddress": "192.168.1.101", 
-	        "port": "2"
-	    }, 
-	    "id": "0000000000000001"
-	}
+	...(snip)
 
 
 (4) You need to apply some parameters of [Vrf] section in OpenFLow.ini. 
@@ -457,7 +417,7 @@ These scripts are useful for applying some parameters to simpleRouter.
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
 	header: Content-Length: 108
-	header: Date: Sun, 17 Jan 2016 06:16:39 GMT
+	header: Date: Sun, 24 Jan 2016 06:35:23 GMT
 	----------
 	{
 	    "id": "0000000000000001", 
@@ -467,6 +427,7 @@ These scripts are useful for applying some parameters to simpleRouter.
 	        "route_dist": "65011:101"
 	    }
 	}
+
 
 (5) Some static routing informations need to be redistributed in BGP Peering. 
 
@@ -486,7 +447,7 @@ These scripts are useful for applying some parameters to simpleRouter.
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
 	header: Content-Length: 87
-	header: Date: Sun, 17 Jan 2016 06:16:47 GMT
+	header: Date: Sun, 24 Jan 2016 06:35:45 GMT
 	----------
 	{
 	    "bgp": {
@@ -511,15 +472,16 @@ These scripts are useful for checking some parameters in simpleRouter.
 	----------
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
-	header: Content-Length: 294
-	header: Date: Sun, 17 Jan 2016 06:48:35 GMT
+	header: Content-Length: 398
+	header: Date: Sun, 24 Jan 2016 06:48:20 GMT
 	+++++++++++++++++++++++++++++++
-	2016/01/17 15:48:35 : PortTable
+	2016/01/24 15:48:20 : PortTable
 	+++++++++++++++++++++++++++++++
 	portNo   IpAddress       MacAddress        RouteDist
 	-------- --------------- ----------------- ---------
 	       1 172.16.1.101    00:00:00:11:11:11 
-	       2 192.168.1.101   00:00:00:00:00:01 65011:101
+	       2 172.16.2.101    00:00:00:22:22:22 
+	       3 192.168.0.1     00:00:00:00:00:01 65011:101
 
 
 (2) Checking Arp Information  
@@ -532,16 +494,18 @@ These scripts are useful for checking some parameters in simpleRouter.
 	----------
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
-	header: Content-Length: 322
-	header: Date: Sun, 17 Jan 2016 06:49:52 GMT
+	header: Content-Length: 490
+	header: Date: Sun, 24 Jan 2016 06:48:36 GMT
 	+++++++++++++++++++++++++++++++
-	2016/01/17 15:49:52 : ArpTable 
+	2016/01/24 15:48:36 : ArpTable 
 	+++++++++++++++++++++++++++++++
 	portNo   MacAddress        IpAddress
 	-------- ----------------- ------------
-	       1 00:00:00:01:01:01 172.16.1.102
-	       2 00:23:81:14:e8:17 192.168.1.102
-	       3 00:00:00:11:11:11 172.16.1.101
+	       1 00:00:00:55:55:55 172.16.1.102
+	       2 00:00:00:33:33:33 172.16.2.102
+	       3 00:23:81:14:e8:17 192.168.0.2
+	       4 00:00:00:11:11:11 172.16.1.101
+	       5 00:00:00:22:22:22 172.16.2.101
 
 
 (3) Checking Routing Table Information  
@@ -554,26 +518,16 @@ These scripts are useful for checking some parameters in simpleRouter.
 	----------
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
-	header: Content-Length: 1463
-	header: Date: Sun, 17 Jan 2016 06:55:47 GMT
+	header: Content-Length: 453
+	header: Date: Sun, 24 Jan 2016 06:49:00 GMT
 	+++++++++++++++++++++++++++++++
-	2016/01/17 15:55:47 : Show rib 
+	2016/01/24 15:49:00 : Show rib 
 	+++++++++++++++++++++++++++++++
 	Status codes: * valid, > best
 	Origin codes: i - IGP, e - EGP, ? - incomplete
 	     Network                          Labels   Next Hop             Reason          Metric LocPrf Path
-	 *>  65011:101:110.1.1.0/24           [1001]   172.16.1.102         Only Path       100    100    ?
-	 *>  65011:101:110.1.7.0/24           [1001]   172.16.1.102         Only Path       100    100    ?
-	 *>  65011:101:110.1.2.0/24           [1001]   172.16.1.102         Only Path       100    100    ?
-	 *>  65011:101:10.1.0.2/32            [1000]   172.16.1.102         Only Path       100    100    ?
-	 *>  65011:101:110.1.8.0/24           [1001]   172.16.1.102         Only Path       100    100    ?
-	 *>  65011:101:192.168.1.102/32       [100]    0.0.0.0              Only Path                     ?
-	 *>  65011:101:110.1.0.0/24           [1001]   172.16.1.102         Only Path       100    100    ?
-	 *>  65011:101:110.1.6.0/24           [1001]   172.16.1.102         Only Path       100    100    ?
-	 *>  65011:101:110.1.5.0/24           [1001]   172.16.1.102         Only Path       100    100    ?
-	 *>  65011:101:110.1.9.0/24           [1001]   172.16.1.102         Only Path       100    100    ?
-	 *>  65011:101:110.1.4.0/24           [1001]   172.16.1.102         Only Path       100    100    ?
-	 *>  65011:101:110.1.3.0/24           [1001]   172.16.1.102         Only Path       100    100    ?
+	 *>  65011:101:192.168.1.2/32         [300]    172.16.1.102         Only Path              100    ?
+	 *>  65011:101:192.168.0.2/32         [100]    0.0.0.0              Only Path                     ?
 
 
 (4) Check BGP Peering UP/DOWN log Information  
@@ -586,14 +540,15 @@ These scripts are useful for checking some parameters in simpleRouter.
 	----------
 	reply: 'HTTP/1.1 200 OK\r\n'
 	header: Content-Type: application/json; charset=UTF-8
-	header: Content-Length: 197
-	header: Date: Sun, 17 Jan 2016 06:58:14 GMT
+	header: Content-Length: 321
+	header: Date: Sun, 24 Jan 2016 06:49:41 GMT
 	+++++++++++++++++++++++++++++++
-	2016/01/17 15:58:14 : Peer Status
+	2016/01/24 15:49:41 : Peer Status
 	+++++++++++++++++++++++++++++++
 	occurTime            status    myPeer             remotePeer         asNumber
 	-------------------- --------- ------------------ ------------------ --------
-	2016/01/17 15:16:29  Peer Up   10.0.0.1           10.10.10.2         65011
+	2016/01/24 15:34:54  Peer Up   10.0.0.1           10.0.0.3           65011
+	2016/01/24 15:34:59  Peer Up   10.0.0.1           10.0.0.2           65011
 
 
 ### STEP5: Confirm Reachability of End-End communication via simpleRouter
@@ -602,7 +557,7 @@ These scripts are useful for checking some parameters in simpleRouter.
 	| End      |+-------+ | simple  | +-------+ |  BGP   | +------+| End      |
 	| station1 |          | Router  |           | Router |         | station2 |
 	+----------+          +---------+           +--------+         +----------+
-	192.168.1.102                                                  110.1.0.1
+	192.168.0.2                                                    192.168.1.2
 
 
 Checking End station1 environment.
@@ -610,32 +565,32 @@ Checking End station1 environment.
 	$ ip addr
 	 ...
 	2: p2p1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
-    link/ether 00:23:81:14:e8:17 brd ff:ff:ff:ff:ff:ff
-    inet 192.168.1.102/24 brd 192.168.1.255 scope global p2p1
-       valid_lft forever preferred_lft forever
-    inet6 fe80::223:81ff:fe14:e817/64 scope link 
-       valid_lft forever preferred_lft forever
+	    link/ether 00:23:81:14:e8:17 brd ff:ff:ff:ff:ff:ff
+	    inet 192.168.0.2/24 brd 192.168.0.255 scope global p2p1
+	       valid_lft forever preferred_lft forever
+	    inet6 fe80::223:81ff:fe14:e817/64 scope link 
+	       valid_lft forever preferred_lft forever
 
 	$ route -n
 	Kernel IP routing table
 	Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
-	110.1.0.0       192.168.1.101   255.255.255.0   UG    0      0        0 p2p1
-	192.168.1.0     0.0.0.0         255.255.255.0   U     0      0        0 p2p1
-	192.168.100.0   0.0.0.0         255.255.255.0   U     9      0        0 wlan0
+	0.0.0.0         192.168.0.1     0.0.0.0         UG    0      0        0 p2p1
+	192.168.0.0     0.0.0.0         255.255.255.0   U     0      0        0 p2p1
 	192.168.122.0   0.0.0.0         255.255.255.0   U     0      0        0 virbr0
 
 
-Ping result from End Station1 to End Station2 is good as following.
+Checking Reachability from End Station1 to End Station2 is good as following.
 
-	$ ping 110.1.0.1
-	PING 110.1.0.1 (110.1.0.1) 56(84) bytes of data.
-	64 bytes from 110.1.0.1: icmp_seq=1 ttl=64 time=5.04 ms
-	64 bytes from 110.1.0.1: icmp_seq=2 ttl=64 time=4.27 ms
-	64 bytes from 110.1.0.1: icmp_seq=3 ttl=64 time=4.27 ms
-	64 bytes from 110.1.0.1: icmp_seq=4 ttl=64 time=3.93 ms
-	64 bytes from 110.1.0.1: icmp_seq=5 ttl=64 time=4.06 ms
+	$ ping 192.168.1.2
+	PING 192.168.1.2 (192.168.1.2) 56(84) bytes of data.
+	64 bytes from 192.168.1.2: icmp_seq=1 ttl=64 time=4.14 ms
+	64 bytes from 192.168.1.2: icmp_seq=2 ttl=64 time=4.00 ms
+	64 bytes from 192.168.1.2: icmp_seq=3 ttl=64 time=4.34 ms
+	64 bytes from 192.168.1.2: icmp_seq=4 ttl=64 time=5.38 ms
+	64 bytes from 192.168.1.2: icmp_seq=5 ttl=64 time=4.45 ms
 	^C
-	--- 110.1.0.1 ping statistics ---
-	5 packets transmitted, 5 received, 0% packet loss, time 4005ms
-	rtt min/avg/max/mdev = 3.930/4.316/5.042/0.391 ms
+	--- 192.168.1.2 ping statistics ---
+	5 packets transmitted, 5 received, 0% packet loss, time 4006ms
+	rtt min/avg/max/mdev = 4.001/4.466/5.387/0.488 ms
 
+It looks good !!

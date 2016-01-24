@@ -1,42 +1,43 @@
-What's simpleRouter for Raspberry Pi
+What's simpleRouter for Raspberry Pi2
 ==========
 The simpleRouter is a software BGP router based Ryu SDN Framework.  
-It works as a OpenFlow equipment supporting Vpnv4(mp-bgp) under Raspberry Pi. 
+It works as a OpenFlow equipment supporting Vpnv4(mp-bgp) under Raspberry Pi2. 
 
 
 Installation
 ===========
-### Raspberry Pi environment
+### Raspberry Pi2 environment
 It recommends for using "the Raspberry Pi 2 Model B" which have Multi USB Ports.
-I've already confirmed that "Raspberry Pi Model B" works properly as following.
+I've already confirmed that "Raspberry Pi Model B" works properly as well.
 
-(1) Checking Raspberry pi edition
+(1) Checking Raspberry pi2 edition
 
-	pi@raspberrypi:~ $ cat /proc/cpuinfo
 	processor	: 0
-	model name	: ARMv6-compatible processor rev 7 (v6l)
-	BogoMIPS	: 2.00
-	Features	: half thumb fastmult vfp edsp java tls 
+	model name	: ARMv7 Processor rev 5 (v7l)
+	BogoMIPS	: 38.40
+	Features	: half thumb fastmult vfp edsp neon vfpv3 tls vfpv4 idiva idivt vfpd32 lpae evtstrm 
 	CPU implementer	: 0x41
 	CPU architecture: 7
 	CPU variant	: 0x0
-	CPU part	: 0xb76
-	CPU revision	: 7
+	CPU part	: 0xc07
+	CPU revision	: 5
 
-	Hardware	: BCM2708
-	Revision	: 000e
-	Serial		: 000000004ef7fbdf
+	...(snip)
+
+	Hardware	: BCM2709
+	Revision	: a01041
+	Serial		: 00000000cacd6b93
 
 
 (2) Checking Raspbian version
 
 	pi@raspberrypi:~ $ uname -a
-	Linux raspberrypi 4.1.13+ #826 PREEMPT Fri Nov 13 20:13:22 GMT 2015 armv6l GNU/Linux
+	Linux raspberrypi-1 4.1.13-v7+ #826 SMP PREEMPT Fri Nov 13 20:19:03 GMT 2015 armv7l GNU/Linux
 
 
 ### Ryu Controller installation
 
-(1) Installing langage-pack-ja
+(1) Updating packages
 
 	pi@raspberrypi:~ $ sudo apt-get update
 
@@ -98,21 +99,24 @@ I've already confirmed that "Raspberry Pi Model B" works properly as following.
 	pi@raspberrypi:~ $ service openvswitch-switch status
 	● openvswitch-switch.service - LSB: Open vSwitch switch
 	   Loaded: loaded (/etc/init.d/openvswitch-switch)
-	   Active: active (running) since Sun 2016-01-17 08:29:31 JST; 5min ago
+	   Active: active (running) since 日 2016-01-24 08:00:10 JST; 1h 6min ago
+	  Process: 541 ExecStart=/etc/init.d/openvswitch-switch start (code=exited, status=0/SUCCESS)
 	   CGroup: /system.slice/openvswitch-switch.service
-	           ├─22071 ovsdb-server: monitoring pid 22072 (healthy)
-	           ├─22072 ovsdb-server /etc/openvswitch/conf.db -vconsole:emer -vsyslog:err -vfile...
-	           ├─22081 ovs-vswitchd: monitoring pid 22082 (healthy)
-	           └─22082 ovs-vswitchd unix:/var/run/openvswitch/db.sock -vconsole:emer -vsyslog:e...
-
+	           ├─734 ovsdb-server: monitoring pid 735 (healthy)
+	           ├─735 ovsdb-server /etc/openvswitch/conf.db -vconsole:emer -vsyslo...
+	           ├─744 ovs-vswitchd: monitoring pid 745 (healthy)
+	           └─745 ovs-vswitchd unix:/var/run/openvswitch/db.sock -vconsole:eme...
 
 Quick Start
 ===========
-### STEP1: Basic networking configuration
+### STEP1: Basic and Additional networking configuration
 You need to assign physical ports as following.
 - eth0 : Management Port (use of maintenance)
 - eth1 : OpenFlow Port
 - eth2 : OpenFlow Port
+- eth3 : OpenFlow Port
+- bgpPort1 : Internal Port
+- bgpPort2 : Internal Port
 
 (1) Configure the basic networking in Raspbian environment
 
@@ -124,7 +128,7 @@ You need to assign physical ports as following.
 	#iface eth0 inet manual
 	auto eth0
 	iface eth0 inet static
-	address 192.168.100.102
+	address 192.168.100.101
 	netmask 255.255.255.0
 	gateway 192.168.100.1
 
@@ -142,8 +146,26 @@ You need to assign physical ports as following.
 	down ip link set $IFACE promisc off
 	down ifconfig $IFACE down
 	
+	auto eth3
+	iface eth3 inet manual
+	up ifconfig $IFACE 0.0.0.0 up
+	up ip link set $IFACE promisc on
+	down ip link set $IFACE promisc off
+	down ifconfig $IFACE down
 
-	pi@raspberrypi:~ $ sudo /etc/init.d/networking restart
+	auto bgpPort1
+	iface bgpPort1 inet static
+	address 172.16.1.101
+	netmask 255.255.255.252
+	hwaddress ether 00:00:00:11:11:11
+
+	auto bgpPort2
+	iface bgpPort2 inet static
+	address 172.16.2.102
+	netmask 255.255.255.252
+	hwaddress ether 00:00:00:22:22:22
+
+
 	pi@raspberrypi:~ $ sudo /etc/init.d/networking restart
 
 
@@ -161,121 +183,55 @@ You need to assign physical ports as following.
 	(*) In case of using vpnv4, needs to switch ovs-vswitchd in userspace mode.
 
 
-(3) Checking OpenFlow ports
-
-	pi@raspberrypi:~ $ sudo ovs-ofctl dump-ports-desc br0 --protocol=OpenFlow13
-	OFPST_PORT_DESC reply (OF1.3) (xid=0x2):
-	 1(eth1): addr:34:95:db:0f:66:c1
-	     config:     0
-	     state:      0
-	     current:    100MB-FD AUTO_NEG
-	     advertised: 10MB-HD 10MB-FD 100MB-HD 100MB-FD COPPER AUTO_NEG AUTO_PAUSE
-	     supported:  10MB-HD 10MB-FD 100MB-HD 100MB-FD COPPER AUTO_NEG
-	     speed: 100 Mbps now, 100 Mbps max
-	 2(eth2): addr:34:95:db:2a:8b:66
-	     config:     0
-	     state:      0
-	     current:    100MB-FD AUTO_NEG
-	     advertised: 10MB-HD 10MB-FD 100MB-HD 100MB-FD COPPER AUTO_NEG AUTO_PAUSE
-	     supported:  10MB-HD 10MB-FD 100MB-HD 100MB-FD COPPER AUTO_NEG
-	     speed: 100 Mbps now, 100 Mbps max
-	 LOCAL(br0): addr:34:95:db:0f:66:c1
-	     config:     0
-	     state:      0
-	     current:    10MB-FD COPPER
-	     speed: 10 Mbps now, 0 Mbps max
-
-
-### STEP2: Additional networking configuration
-You need to assign internal ports as following.
-- bgpPort1 : Internal Port
-- bgpPort2 : Internal Port
-
-(1) Configure the logical port in OpenvSwitch environment
+(3) Configure the logical port in OpenvSwitch environment
 
 	pi@raspberrypi:~ $ sudo ovs-vsctl add-port br0 bgpPort1 -- set Interface bgpPort1 type=internal
 	pi@raspberrypi:~ $ sudo ovs-vsctl add-port br0 bgpPort2 -- set Interface bgpPort2 type=internal
 
 
-(2) Checking OpenFlow ports for new logical port
-
-	pi@raspberrypi:~ $ sudo ovs-ofctl dump-ports-desc br0 --protocol=OpenFlow13
-	 ....
-	 3(bgpPort1): addr:42:2f:a2:7d:50:64
-	     config:     0
-	     state:      0
-	     current:    10MB-FD COPPER
-	     speed: 10 Mbps now, 0 Mbps max
-	 4(bgpPort2): addr:9a:3a:b3:47:02:73
-	     config:     0
-	     state:      0
-	     current:    10MB-FD COPPER
-	     speed: 10 Mbps now, 0 Mbps max
-	 LOCAL(br0): addr:34:95:db:0f:66:c1
-	     config:     0
-	     state:      0
-	     current:    10MB-FD COPPER
-	     speed: 10 Mbps now, 0 Mbps max
-
-
-(3) Configure the additional networking in Raspbian environment
-
-	pi@raspberrypi:~ $ sudo vi /etc/network/interfaces
-	————
-	 ....
-	auto bgpPort1
-	iface bgpPort1 inet static
-	address 172.16.1.101
-	netmask 255.255.255.252
-	hwaddress ether 00:00:00:11:11:11
-
-	auto bgpPort2
-	iface bgpPort2 inet static
-	address 172.16.2.101
-	netmask 255.255.255.252
-	hwaddress ether 00:00:00:22:22:22
-
-	
-	pi@raspberrypi:~ $ sudo /etc/init.d/networking restart
-	pi@raspberrypi:~ $ sudo /etc/init.d/networking restart
-
-
-(4) Checking OpenFlow ports again
+(4) Checking OpenFlow ports
 
 	pi@raspberrypi:~ $ sudo ovs-ofctl dump-ports-desc br0 --protocol=OpenFlow13
 	OFPST_PORT_DESC reply (OF1.3) (xid=0x2):
-	 1(eth1): addr:34:95:db:0f:66:c1
+	 1(eth1): addr:34:95:db:2a:89:ba
 	     config:     0
-	     state:      0
-	     current:    100MB-FD AUTO_NEG
+	     state:      LINK_DOWN
+	     current:    10MB-HD AUTO_NEG
 	     advertised: 10MB-HD 10MB-FD 100MB-HD 100MB-FD COPPER AUTO_NEG AUTO_PAUSE
 	     supported:  10MB-HD 10MB-FD 100MB-HD 100MB-FD COPPER AUTO_NEG
-	     speed: 100 Mbps now, 100 Mbps max
-	 2(eth2): addr:34:95:db:2a:8b:66
+	     speed: 10 Mbps now, 100 Mbps max
+	 2(eth2): addr:34:95:db:2a:8d:c2
 	     config:     0
-	     state:      0
-	     current:    100MB-FD AUTO_NEG
+	     state:      LINK_DOWN
+	     current:    10MB-HD AUTO_NEG
 	     advertised: 10MB-HD 10MB-FD 100MB-HD 100MB-FD COPPER AUTO_NEG AUTO_PAUSE
 	     supported:  10MB-HD 10MB-FD 100MB-HD 100MB-FD COPPER AUTO_NEG
-	     speed: 100 Mbps now, 100 Mbps max
-	 3(bgpPort1): addr:00:00:00:11:11:11
+	     speed: 10 Mbps now, 100 Mbps max
+	 3(eth3): addr:34:95:db:0b:3d:87
+	     config:     0
+	     state:      LINK_DOWN
+	     current:    10MB-HD AUTO_NEG
+	     advertised: 10MB-HD 10MB-FD 100MB-HD 100MB-FD COPPER AUTO_NEG AUTO_PAUSE
+	     supported:  10MB-HD 10MB-FD 100MB-HD 100MB-FD COPPER AUTO_NEG
+	     speed: 10 Mbps now, 100 Mbps max
+	 4(bgpPort1): addr:00:00:00:11:11:11
 	     config:     0
 	     state:      0
 	     current:    10MB-FD COPPER
 	     speed: 10 Mbps now, 0 Mbps max
-	 4(bgpPort2): addr:00:00:00:22:22:22
+	 5(bgpPort2): addr:00:00:00:22:22:22
 	     config:     0
 	     state:      0
 	     current:    10MB-FD COPPER
 	     speed: 10 Mbps now, 0 Mbps max
-	 LOCAL(br0): addr:34:95:db:0f:66:c1
+	 LOCAL(br0): addr:34:95:db:0b:3d:87
 	     config:     0
 	     state:      0
 	     current:    10MB-FD COPPER
 	     speed: 10 Mbps now, 0 Mbps max
 
 
-### STEP3: Starting simpleRouter
+### STEP2: Starting simpleRouter
 You can Start simpleRouter.
 
         pi@raspberrypi:~ $ cd simpleRouter/ryu-app/
@@ -292,17 +248,23 @@ You can Start simpleRouter.
         (1594) wsgi starting up on http://0.0.0.0:8080/
 
 
-### STEP4: Applying various information for simpleRouter
+### STEP3: Applying various information for simpleRouter
 You can apply various information through RESTful in simpleRouter.  
 These scripts are useful for applying some parameters to simpleRouter. 
 
-	             +---------+  mp-BGP          +--------+
-	... -------+ | simple  | +--------------+ |  BGP   | +---- ...
-	      (eth2) | Router  | (eth1)           | Router |
-	             +---------+                  +--------+
-	< AS65011 >  172.16.1.101                172.16.1.102  < AS65011 >
+	static   (eth3) +---------+ (eth1)   mp-BGP     +--------+
+	... ----------+ | simple  | +-----------------+ |  BGP   | +---- ...
+	    192.168.0.1 | Router  | 172.16.1.101/30     | Router |
+	                |         |                     +--------+
+	                |         |                     < AS65011 >
+	                |         |
+	                |         | (eth2)   mp-BGP     +--------+
+	                |         | +-----------------+ |  BGP   | +---- ...
+	                |         | 172.16.2.101/30     | Router |
+	                +---------+                     +--------+
+	                < AS65011 >                     < AS65011 >
 
-	<-- Target in simpleRouter ---->   <---- out of scope ---->
+	<-- Target in simpleRouter -------------->     <-- out of scope -->
 
 
 (1) You can edit some parammeters for simpleRouter.
@@ -329,28 +291,28 @@ These scripts are useful for applying some parameters to simpleRouter.
 	netmask = "255.255.255.252"
 	opposite_ipaddress = "172.16.1.102"
 	opposite_asnumber = "65011"
-	port_offload_bgp = "3"
-	bgp_med = ""
-	bgp_local_pref = "300"
-	bgp_filter_asnumber = "65011"
+	port_offload_bgp = "4"
 	vrf_routeDist = ""
 
 	[Port2]
 	port = "2"
+	macaddress = "00:00:00:22:22:22"
+	ipaddress = "172.16.2.101"
+	netmask = "255.255.255.252"
+	opposite_ipaddress = "172.16.2.102"
+	opposite_asnumber = "65011"
+	port_offload_bgp = "5"
+	vrf_routeDist = ""
+
+	[Port3]
+	port = "3"
 	macaddress = "00:00:00:00:00:01"
-	ipaddress = "192.168.1.101"
+	ipaddress = "192.168.0.1"
 	netmask = "255.255.255.0"
-	opposite_ipaddress = "192.168.1.102"
+	opposite_ipaddress = "192.168.0.2"
 	opposite_asnumber = ""
 	port_offload_bgp = ""
-	bgp_med = ""
-	bgp_local_pref = ""
-	bgp_filter_asnumber = ""
 	vrf_routeDist = "65011:101"
-
-	[Neighbor]
-	routetype = "received-routes"
-	address = "172.16.1.102"
 
 
 (2) You need to apply some parameters of [Bgp] section in OpenFLow.ini. 
@@ -535,7 +497,7 @@ These scripts are useful for applying some parameters to simpleRouter.
 	}
 
 
-### STEP5: Confirm Port/BGP Information
+### STEP4: Confirm Port/BGP Information
 You can check various information through RESTful in simpleRouter.  
 These scripts are useful for checking some parameters in simpleRouter. 
 
@@ -582,47 +544,7 @@ These scripts are useful for checking some parameters in simpleRouter.
 	       3 00:00:00:11:11:11 172.16.1.101
 
 
-
-(3) Checking adh_rib_in of receiving BGP_update messages from BGP Peering.
-
-	pi@raspberrypi:~/simpleRouter/rest-client $ ./get_neighbor.sh 
-	======================================================================
-	get_neighbor
-	======================================================================
-	/openflow/0000000000000001/neighbor
-
-	{
-	"neighbor": {
-	"routetype": "received-routes",
-	"address": "172.16.1.102"
-	}
-	}
-	----------
-	reply: 'HTTP/1.1 200 OK\r\n'
-	header: Content-Type: application/json; charset=UTF-8
-	header: Content-Length: 1398
-	header: Date: Sun, 17 Jan 2016 06:51:19 GMT
-	+++++++++++++++++++++++++++++++
-	2016/01/17 15:51:19 : Show neighbor 
-	+++++++++++++++++++++++++++++++
-	Status codes: x filtered
-	Origin codes: i - IGP, e - EGP, ? - incomplete
-	    Timestamp           Network                          Labels   Next Hop             Metric LocPrf Path
-	    2016/01/17 06:16:39 110.1.0.0/24                     None     172.16.1.102         100    100    ?
-	    2016/01/17 06:16:39 110.1.5.0/24                     None     172.16.1.102         100    100    ?
-	    2016/01/17 06:16:39 110.1.6.0/24                     None     172.16.1.102         100    100    ?
-	    2016/01/17 06:16:39 110.1.3.0/24                     None     172.16.1.102         100    100    ?
-	    2016/01/17 06:16:39 110.1.4.0/24                     None     172.16.1.102         100    100    ?
-	    2016/01/17 06:16:39 110.1.9.0/24                     None     172.16.1.102         100    100    ?
-	    2016/01/17 06:16:39 110.1.7.0/24                     None     172.16.1.102         100    100    ?
-	    2016/01/17 06:16:39 110.1.1.0/24                     None     172.16.1.102         100    100    ?
-	    2016/01/17 06:16:39 110.1.2.0/24                     None     172.16.1.102         100    100    ?
-	    2016/01/17 06:16:40 10.1.0.2/32                      None     172.16.1.102         100    100    ?
-	    2016/01/17 06:16:40 110.1.8.0/24                     None     172.16.1.102         100    100    ?
-
-
-
-(4) Checking Routing Table Information  
+(3) Checking Routing Table Information  
 
 	pi@raspberrypi:~/simpleRouter/rest-client $ ./get_rib.sh 
 	======================================================================
@@ -654,7 +576,7 @@ These scripts are useful for checking some parameters in simpleRouter.
 	 *>  65011:101:110.1.3.0/24           [1001]   172.16.1.102         Only Path       100    100    ?
 
 
-(5) Check BGP Peering UP/DOWN log Information  
+(4) Check BGP Peering UP/DOWN log Information  
 
 	pi@raspberrypi:~/simpleRouter/rest-client $ ./get_peer_status.sh 
 	======================================================================
@@ -674,7 +596,7 @@ These scripts are useful for checking some parameters in simpleRouter.
 	2016/01/17 15:16:29  Peer Up   10.0.0.1           10.10.10.2         65011
 
 
-### STEP6: Confirm Reachability of End-End communication via simpleRouter
+### STEP5: Confirm Reachability of End-End communication via simpleRouter
 
 	+--------+-+          +---------+           +--------+         +----------+
 	| End      |+-------+ | simple  | +-------+ |  BGP   | +------+| End      |
